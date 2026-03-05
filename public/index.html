@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FüKw Dropzone</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>FüKw Dropzone</h1>
+      <p>Dateien per Drag & Drop oder Button hochladen.</p>
+
+      <label class="dropzone" id="dropzone" for="files">
+        <input id="files" type="file" multiple />
+        <span>Dateien hier ablegen oder klicken</span>
+      </label>
+
+      <div class="controls">
+        <input id="hint" type="text" maxlength="500" placeholder="Hinweis (optional)" />
+        <select id="category">
+          <option value="">Kategorie (optional)</option>
+          <option value="bilder">Bilder</option>
+          <option value="dokumente">Dokumente</option>
+          <option value="sonstiges">Sonstiges</option>
+        </select>
+        <button id="uploadBtn" type="button">Dateien auswählen</button>
+      </div>
+
+      <ul id="queue" class="queue"></ul>
+      <p id="status" class="status"></p>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
