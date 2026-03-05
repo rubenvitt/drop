@@ -1,0 +1,20 @@
+{
+  "name": "fuekw-dropzone",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal robust dropzone upload service",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "qr": "node scripts/generate-qr.js"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/static": "^9.0.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.1",
+    "ipaddr.js": "^2.3.0",
+    "qrcode": "^1.5.4"
+  }
+}

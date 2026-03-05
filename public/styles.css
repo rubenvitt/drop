@@ -1,0 +1,67 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.container {
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+.dropzone {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  border: 2px dashed #64748b;
+  border-radius: 14px;
+  background: #1e293b;
+  cursor: pointer;
+  margin: 1rem 0;
+}
+.dropzone.dragover {
+  border-color: #38bdf8;
+  background: #0b2440;
+}
+input[type='file'] {
+  display: none;
+}
+.controls {
+  display: grid;
+  gap: 0.5rem;
+}
+input,
+select,
+button {
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.75rem;
+}
+button {
+  cursor: pointer;
+  background: #0284c7;
+  border: 0;
+}
+.queue {
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.queue li {
+  background: #1e293b;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+.progress {
+  width: 100%;
+}
+.status {
+  min-height: 1.5rem;
+}
