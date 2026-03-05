@@ -3,6 +3,7 @@ services:
     build: .
     container_name: fuekw-dropzone
     restart: unless-stopped
+    user: "${DROP_UID:-1000}:${DROP_GID:-1000}"
     env_file:
       - .env
     ports:

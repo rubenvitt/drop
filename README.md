@@ -58,6 +58,7 @@ git clone <REPO_URL> /opt/fuekw-dropzone && cd /opt/fuekw-dropzone \
 && cp .env.example .env \
 && sudo mkdir -p /srv/fuekw/drop_inbox \
 && sudo chown -R 1000:1000 /srv/fuekw/drop_inbox \
+&& export DROP_UID=$(id -u) DROP_GID=$(id -g) \
 && docker compose up -d --build
 ```
 
@@ -77,6 +78,7 @@ Siehe `.env.example`.
 Wichtig:
 - `UPLOAD_DIR=/uploads`
 - Host mount: `/srv/fuekw/drop_inbox:/uploads`
+- Container user mapping (wichtig bei EACCES auf `/uploads`): `DROP_UID=<host_uid>` und `DROP_GID=<host_gid>` (Default jeweils `1000`)
 - `MAX_FILE_SIZE_MB=500`
 - `ALLOWED_MIME=...`
 - `AUTH_MODE=none|basic|token|subnet`
@@ -132,4 +134,4 @@ node scripts/generate-qr.js "https://drop.iuk-ue.de/u/<token>" ./qr/drop.png
 - **413 File too large**: `MAX_FILE_SIZE_MB` erhöhen.
 - **415 Disallowed MIME**: `ALLOWED_MIME` ergänzen.
 - **401/403**: Auth-Modus + Credentials/Subnet prüfen.
-- **Uploads fehlen**: Host-Mount `/srv/fuekw/drop_inbox` Rechte prüfen.
+- **Uploads fehlen / EACCES auf `/uploads`**: UID/GID-Mapping setzen (`DROP_UID=$(id -u)`, `DROP_GID=$(id -g)`) und Besitzrechte auf Host-Verzeichnis prüfen.
