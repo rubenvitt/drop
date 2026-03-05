@@ -44,6 +44,13 @@ Eine extrem einfache Upload-Webapp für lokale Einsatznetze.
 └── .env.example
 ```
 
+## GitHub Actions (Docker)
+
+Die Pipeline `.github/workflows/docker.yml` übernimmt:
+- `pnpm install --frozen-lockfile` + `pnpm test`
+- Docker Build (bei PRs ohne Push)
+- Docker Push nach GHCR (`ghcr.io/<owner>/<repo>`) auf `main` und Tags `v*`
+
 ## One-liner Deploy (copy/paste)
 
 ```bash
