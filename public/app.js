@@ -9,6 +9,41 @@ const categoryInput = document.getElementById('category');
 const pathParts = window.location.pathname.split('/').filter(Boolean);
 const uploadPath = pathParts[0] === 'u' && pathParts[1] ? `/u/${pathParts[1]}/upload` : '/upload';
 
+const parseJson = (text) => {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const errorMessageFor = (status, payload) => {
+  const rawError = String(payload?.error ?? '');
+
+  if (status === 401 || status === 403) {
+    return 'Upload nicht erlaubt. Bitte Login-Link, Zugangsdaten oder erlaubtes Netzwerk prüfen.';
+  }
+
+  if (status === 413) {
+    return 'Datei zu groß. Bitte kleinere Datei wählen oder Serverlimit erhöhen.';
+  }
+
+  if (status === 415) {
+    return 'Dateityp nicht erlaubt. Bitte einen unterstützten Dateityp wählen.';
+  }
+
+  if (rawError.includes('EACCES') || rawError.includes('/uploads')) {
+    return 'Server kann nicht in den Upload-Ordner schreiben. Bitte Server-Berechtigungen prüfen.';
+  }
+
+  if (status >= 500) {
+    return 'Upload fehlgeschlagen. Bitte später erneut versuchen oder Server-Logs prüfen.';
+  }
+
+  return `Upload fehlgeschlagen (${status}).`;
+};
+
 const renderItem = (file) => {
   const li = document.createElement('li');
   li.innerHTML = `<strong>${file.name}</strong><br><progress class="progress" max="100" value="0"></progress><span class="meta">Wartet…</span>`;
@@ -36,7 +71,8 @@ const uploadFile = (file, li) =>
 
     xhr.addEventListener('load', () => {
       const ok = xhr.status >= 200 && xhr.status < 300;
-      metaEl.textContent = ok ? 'Fertig' : `Fehler (${xhr.status})`;
+      const payload = parseJson(xhr.responseText);
+      metaEl.textContent = ok ? 'Fertig' : errorMessageFor(xhr.status, payload);
       resolve(ok);
     });
 
