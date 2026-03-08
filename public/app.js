@@ -22,9 +22,11 @@ const uploadFile = (file, li) =>
     const progressEl = li.querySelector('progress');
     const metaEl = li.querySelector('.meta');
     const form = new FormData();
-    form.append('files', file, file.name);
+    // Send metadata fields before the file so the backend can apply
+    // hint/category while streaming the incoming file part.
     form.append('hint', hintInput.value.trim());
     form.append('category', categoryInput.value);
+    form.append('files', file, file.name);
 
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {

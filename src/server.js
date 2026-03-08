@@ -99,18 +99,24 @@ const handleUpload = async (req, reply) => {
         await rename(tempPath, finalPath);
 
         if (hint || category) {
-          const metaName = `${path.basename(finalPath)}.json`;
+          const fileBase = path.basename(finalPath);
+          const metaName = `${fileBase}.json`;
           const metaPath = path.join(config.metaDir, metaName);
           const payload = {
             timestamp: new Date().toISOString(),
             ip,
-            filename: path.basename(finalPath),
+            filename: fileBase,
             storedPath: finalPath,
             size: bytes,
             hint,
             category
           };
           await writeFile(metaPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+
+          if (hint) {
+            const notePath = path.join(targetDir, `${fileBase}.txt`);
+            await writeFile(notePath, `${hint}\n`, 'utf8');
+          }
         }
 
         uploaded.push({ filename: path.basename(finalPath), size: bytes });

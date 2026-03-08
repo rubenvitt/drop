@@ -11,7 +11,7 @@ Eine extrem einfache Upload-Webapp für lokale Einsatznetze.
 - Eine Seite: Drag & Drop, Dateiauswahl, Upload-Fortschritt, Status.
 - Mehrfach-Upload (Drag&Drop + File Picker).
 - Speicherung nach `/uploads` (Host-Mount z. B. `/srv/fuekw/drop_inbox`).
-- Optionale Felder: `hinweis` + `kategorie`.
+- Optionale Felder: `hinweis` + `kategorie` (Kategorie legt Unterordner an, Hinweis wird als `*.txt` neben der Datei gespeichert).
 - Security-Modi per ENV: `none`, `basic`, `token`, `subnet`.
 - Upload-Härtung:
   - Filename sanitize
@@ -116,7 +116,7 @@ Setze `CADDY_DOMAIN=drop.iuk-ue.de` und stelle DNS/Tunnel korrekt ein.
 ## Logs
 - Upload-Logs laufen über Container-Logs (JSON pro Ereignis).
 - Pro Upload: timestamp, ip, filename, size, result.
-- Optionale Metadaten JSON pro Datei unter `/data/meta`.
+- Optionale Metadaten JSON pro Datei unter `/data/meta` sowie Hinweis-Text als `*.txt` direkt im Upload-Ordner/Unterordner.
 
 ## Tests
 
