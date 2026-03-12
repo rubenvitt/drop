@@ -11,6 +11,7 @@ services:
     volumes:
       - /srv/fuekw/drop_inbox:/uploads
       - ./data/meta:/data/meta
+      - ./data/auth:/data/auth
     healthcheck:
       test: ["CMD", "wget", "-qO", "-", "http://127.0.0.1:8080/health"]
       interval: 30s

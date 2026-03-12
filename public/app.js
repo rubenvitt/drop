@@ -1,3 +1,5 @@
+import { isShareLinkPath, resolveUploadPath } from './ui-utils.js';
+
 const fileInput = document.getElementById('files');
 const uploadBtn = document.getElementById('uploadBtn');
 const dropzone = document.getElementById('dropzone');
@@ -5,9 +7,12 @@ const queue = document.getElementById('queue');
 const statusEl = document.getElementById('status');
 const hintInput = document.getElementById('hint');
 const categoryInput = document.getElementById('category');
+const sessionNav = document.getElementById('sessionNav');
+const sessionLabel = document.getElementById('sessionLabel');
+const logoutBtn = document.getElementById('logoutBtn');
 
-const pathParts = window.location.pathname.split('/').filter(Boolean);
-const uploadPath = pathParts[0] === 'u' && pathParts[1] ? `/u/${pathParts[1]}/upload` : '/upload';
+const shareMode = isShareLinkPath(window.location.pathname);
+const uploadPath = resolveUploadPath(window.location.pathname);
 
 const parseJson = (text) => {
   if (!text) return null;
@@ -22,7 +27,7 @@ const errorMessageFor = (status, payload) => {
   const rawError = String(payload?.error ?? '');
 
   if (status === 401 || status === 403) {
-    return 'Upload nicht erlaubt. Bitte Login-Link, Zugangsdaten oder erlaubtes Netzwerk prüfen.';
+    return 'Upload nicht erlaubt. Bitte Login oder Share-Link prüfen.';
   }
 
   if (status === 413) {
@@ -57,8 +62,7 @@ const uploadFile = (file, li) =>
     const progressEl = li.querySelector('progress');
     const metaEl = li.querySelector('.meta');
     const form = new FormData();
-    // Send metadata fields before the file so the backend can apply
-    // hint/category while streaming the incoming file part.
+
     form.append('hint', hintInput.value.trim());
     form.append('category', categoryInput.value);
     form.append('files', file, file.name);
@@ -97,8 +101,7 @@ const handleFiles = async (fileList) => {
   let successCount = 0;
   for (const file of files) {
     const li = renderItem(file);
-    // sequential keeps browser memory/network load low
-    // and aligns with backend parallel limits.
+    // Sequential uploads keep browser/network pressure aligned with backend limits.
     // eslint-disable-next-line no-await-in-loop
     const ok = await uploadFile(file, li);
     if (ok) successCount += 1;
@@ -107,8 +110,43 @@ const handleFiles = async (fileList) => {
   statusEl.textContent = `${successCount}/${files.length} Datei(en) erfolgreich hochgeladen.`;
 };
 
+async function loadSessionNavigation() {
+  if (shareMode) {
+    sessionNav.hidden = true;
+    return;
+  }
+
+  const response = await fetch('/api/session', {
+    credentials: 'same-origin'
+  });
+
+  if (!response.ok) {
+    window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+    return;
+  }
+
+  const payload = await response.json();
+  sessionLabel.textContent = payload.user.name || payload.user.email;
+  sessionNav.hidden = false;
+}
+
+async function logout() {
+  const response = await fetch('/logout', {
+    method: 'POST',
+    credentials: 'same-origin'
+  });
+
+  if (response.redirected) {
+    window.location.href = response.url;
+    return;
+  }
+
+  window.location.href = '/login';
+}
+
 uploadBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', (event) => handleFiles(event.target.files));
+logoutBtn?.addEventListener('click', logout);
 
 ['dragenter', 'dragover'].forEach((evt) => {
   dropzone.addEventListener(evt, (event) => {
@@ -126,4 +164,10 @@ fileInput.addEventListener('change', (event) => handleFiles(event.target.files))
 dropzone.addEventListener('drop', (event) => {
   const files = event.dataTransfer?.files;
   if (files) handleFiles(files);
+});
+
+loadSessionNavigation().catch(() => {
+  if (!shareMode) {
+    window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+  }
 });

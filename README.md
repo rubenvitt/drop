@@ -1,122 +1,78 @@
-# FüKw Dropzone (Docker, produktionsreif & minimal)
+# FüKw Dropzone
 
-Eine extrem einfache Upload-Webapp für lokale Einsatznetze.
-
-## Warum dieser Stack?
-- **Node.js + Fastify**: klein, robust, gutes Multipart-Streaming.
-- **Vanilla Frontend**: kein Build-Schritt, offline-fähig, leicht wartbar.
-- **Docker Compose**: sofort deploybar auf Ubuntu Server.
+Eine minimale Upload-Webapp mit Pocket-ID-geschütztem Admin-Panel und verteilbaren Share-Links.
 
 ## Features
-- Eine Seite: Drag & Drop, Dateiauswahl, Upload-Fortschritt, Status.
-- Mehrfach-Upload (Drag&Drop + File Picker).
-- Speicherung nach `/uploads` (Host-Mount z. B. `/srv/fuekw/drop_inbox`).
-- Optionale Felder: `hinweis` + `kategorie` (Kategorie legt Unterordner an, Hinweis wird als `*.txt` neben der Datei gespeichert).
-- Security-Modi per ENV: `none`, `basic`, `token`, `subnet`.
-- Upload-Härtung:
-  - Filename sanitize
-  - Kollisionen via `_1`, `_2`, ...
-  - Atomic write (`*.part` -> rename)
-  - Rate-Limit pro IP
-  - Max. parallele Uploads
-- Endpoints: `GET /`, `POST /upload`, `GET /health` (+ `/metrics` placeholder)
+- Browser-Login über Pocket ID (OIDC via Better Auth).
+- Admin-Panel zum Erzeugen, Anzeigen und Widerrufen von Share-Tokens.
+- Direkte Share-Links unter `/u/<token>` für externe Nutzer ohne Pocket-ID-Login.
+- Mehrfach-Upload mit Drag & Drop, Hinweis und Kategorie.
+- Upload-Härtung: Dateinamen-Sanitizing, atomare Writes, Rate-Limit, parallele Upload-Grenze.
+- Persistente Auth-Daten in SQLite unter `/data/auth/better-auth.sqlite`.
 
-## Repo-Struktur
+## Wichtige Routen
+- `GET /login`: Login-Seite mit Pocket-ID-Start.
+- `GET /`: Upload-App für eingeloggte Admins.
+- `GET /admin`: Token-Verwaltung für eingeloggte Admins.
+- `GET /u/<token>`: Upload-App über Share-Link.
+- `POST /api/admin/tokens`: Share-Token erstellen.
+- `DELETE /api/admin/tokens/:id`: Share-Token widerrufen.
+- `GET /api/auth/*`: Better-Auth-Endpunkte inkl. OIDC-Callback.
 
-```text
-.
-├── Caddyfile
-├── Dockerfile
-├── docker-compose.yml
-├── public/
-│   ├── app.js
-│   ├── index.html
-│   └── styles.css
-├── scripts/
-│   └── generate-qr.js
-├── src/
-│   ├── config.js
-│   ├── security.js
-│   ├── server.js
-│   └── utils.js
-├── test/
-│   └── sanitize.test.js
-└── .env.example
-```
-
-## GitHub Actions (Docker)
-
-Die Pipeline `.github/workflows/docker.yml` übernimmt:
-- `pnpm install --frozen-lockfile` + `pnpm test`
-- Docker Build (bei PRs ohne Push)
-- Docker Push nach GHCR (`ghcr.io/<owner>/<repo>`) auf `main` und Tags `v*`
-
-## One-liner Deploy (copy/paste)
-
-```bash
-git clone <REPO_URL> /opt/fuekw-dropzone && cd /opt/fuekw-dropzone \
-&& cp .env.example .env \
-&& sudo mkdir -p /srv/fuekw/drop_inbox \
-&& sudo chown -R 1000:1000 /srv/fuekw/drop_inbox \
-&& export DROP_UID=$(id -u) DROP_GID=$(id -g) \
-&& docker compose up -d --build
-```
-
-## Lokaler Start / Entwicklung
+## Lokaler Start
 
 ```bash
 cp .env.example .env
 pnpm install
 pnpm start
-# http://localhost:8080
 ```
 
-## ENV Konfiguration
+`pnpm start` führt vor dem Serverstart automatisch `pnpm exec better-auth migrate --config src/auth.js --yes` aus.
 
-Siehe `.env.example`.
+## Konfiguration
 
-Wichtig:
+Siehe `.env.example`. Die wichtigsten Variablen:
+
+- `BETTER_AUTH_SECRET`: Secret für Better Auth.
+- `BETTER_AUTH_BASE_URL`: Öffentliche Basis-URL der App, z. B. `https://drop.iuk-ue.de`.
+- `POCKET_ID_DISCOVERY_URL`: OIDC Discovery URL deiner Pocket-ID-Instanz.
+- `POCKET_ID_CLIENT_ID`
+- `POCKET_ID_CLIENT_SECRET`
+- `AUTH_DB_PATH=/data/auth/better-auth.sqlite`
 - `UPLOAD_DIR=/uploads`
-- Host mount: `/srv/fuekw/drop_inbox:/uploads`
-- Container user mapping (wichtig bei EACCES auf `/uploads`): `DROP_UID=<host_uid>` und `DROP_GID=<host_gid>` (Default jeweils `1000`)
-- `MAX_FILE_SIZE_MB=500`
-- `ALLOWED_MIME=...`
-- `AUTH_MODE=none|basic|token|subnet`
-- `MAX_PARALLEL_UPLOADS=3`
-- `RATE_LIMIT_PER_MIN=30`
+- `META_DIR=/data/meta`
 
-## Auth / Netzschutz
+Pocket ID muss einen OIDC-Client für die App haben. Redirect-URI:
 
-Empfehlung im FüKw-Netz:
-1. `AUTH_MODE=subnet` + `ALLOWED_SUBNETS` sauber setzen.
-2. Zusätzlich optional `AUTH_MODE=basic` oder `token` (je nach Betriebskonzept).
+```text
+${BETTER_AUTH_BASE_URL}/api/auth/oauth2/callback/pocketid
+```
 
-Hinweis: immer zusätzlich per Firewall auf interne Netze beschränken.
+Die gewünschte Admin-Gruppe wird in Pocket ID am Client konfiguriert. Die App selbst pflegt dafür in v1 keine lokale Allowlist.
 
-### Token-Mode Nutzung
-- URL: `http://host:8080/u/<TOKEN_SECRET>`
-- Upload Endpoint wird im Frontend automatisch auf `/u/<token>/upload` gesetzt.
-
-## Optional TLS mit Caddy
+## Docker
 
 ```bash
-docker compose --profile tls up -d
+git clone <REPO_URL> /opt/fuekw-dropzone
+cd /opt/fuekw-dropzone
+cp .env.example .env
+sudo mkdir -p /srv/fuekw/drop_inbox
+sudo chown -R 1000:1000 /srv/fuekw/drop_inbox
+export DROP_UID=$(id -u) DROP_GID=$(id -g)
+docker compose up -d --build
 ```
 
-Setze `CADDY_DOMAIN=drop.iuk-ue.de` und stelle DNS/Tunnel korrekt ein.
+Persistente Daten:
+- Uploads: `/srv/fuekw/drop_inbox:/uploads`
+- Metadaten: `./data/meta:/data/meta`
+- Auth/SQLite: `./data/auth:/data/auth`
 
-## Cloudflare Tunnel (optional)
-- Tunnel auf den Service zeigen lassen (`http://dropzone:8080` oder Host-Port).
-- Öffentliche URL nur mit `token` oder `basic` nutzen.
+## Share-Links
 
-## SMB-Freigabe auf denselben Ordner
-- Freigabe-Ordner in Samba auf **`/srv/fuekw/drop_inbox`** konfigurieren.
-- Damit sehen SMB-Clients sofort die hochgeladenen Dateien.
-
-## Logs
-- Upload-Logs laufen über Container-Logs (JSON pro Ereignis).
-- Pro Upload: timestamp, ip, filename, size, result.
-- Optionale Metadaten JSON pro Datei unter `/data/meta` sowie Hinweis-Text als `*.txt` direkt im Upload-Ordner/Unterordner.
+- Neue Share-Links werden im Admin-Panel erzeugt.
+- Jeder Link zeigt auf `/u/<token>`.
+- Der Upload-Endpoint wird clientseitig automatisch zu `/u/<token>/upload` aufgelöst.
+- Bereits existierende `TOKEN_SECRET`-Links aus der alten Auth werden nicht migriert.
 
 ## Tests
 
@@ -124,14 +80,15 @@ Setze `CADDY_DOMAIN=drop.iuk-ue.de` und stelle DNS/Tunnel korrekt ein.
 pnpm test
 ```
 
-## QR-Code (nice to have)
+## QR-Code
 
 ```bash
 node scripts/generate-qr.js "https://drop.iuk-ue.de/u/<token>" ./qr/drop.png
 ```
 
 ## Troubleshooting
+- **Pocket-ID-Login schlägt fehl**: Discovery-URL, Client-ID, Client-Secret und Redirect-URI prüfen.
+- **`better-auth`/SQLite startet nicht**: prüfen, ob `better-sqlite3` gebaut wurde und `AUTH_DB_PATH` beschreibbar ist.
 - **413 File too large**: `MAX_FILE_SIZE_MB` erhöhen.
 - **415 Disallowed MIME**: `ALLOWED_MIME` ergänzen.
-- **401/403**: Auth-Modus + Credentials/Subnet prüfen.
-- **Uploads fehlen / EACCES auf `/uploads`**: UID/GID-Mapping setzen (`DROP_UID=$(id -u)`, `DROP_GID=$(id -g)`) und Besitzrechte auf Host-Verzeichnis prüfen.
+- **Uploads fehlen / EACCES auf `/uploads`**: UID/GID-Mapping und Besitzrechte prüfen.

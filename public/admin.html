@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dropzone Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container admin-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Share-Links verwalten</h1>
+          <p class="lead">Neue Tokens erzeugen, bestehende Links prüfen und Zugänge widerrufen.</p>
+        </div>
+        <nav class="session-nav">
+          <a href="/">Zur Upload-App</a>
+          <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
+        </nav>
+      </header>
+
+      <section class="card">
+        <h2>Aktuelle Session</h2>
+        <p id="sessionSummary" class="status">Lade Session…</p>
+      </section>
+
+      <section class="card">
+        <h2>Neuen Share-Link erzeugen</h2>
+        <form id="tokenForm" class="controls">
+          <input id="tokenName" name="name" type="text" maxlength="64" placeholder="Name des Links" required />
+          <input
+            id="tokenExpiry"
+            name="expiresInDays"
+            type="number"
+            min="1"
+            max="365"
+            value="30"
+            placeholder="Ablauf in Tagen"
+          />
+          <button type="submit">Token erzeugen</button>
+        </form>
+
+        <div id="newTokenResult" class="result-card" hidden>
+          <h3>Neuer Share-Link</h3>
+          <p id="newTokenName" class="result-name"></p>
+          <label class="result-field">
+            <span>Share-Link</span>
+            <input id="shareUrlOutput" type="text" readonly />
+          </label>
+          <label class="result-field">
+            <span>Rohes Token</span>
+            <input id="rawTokenOutput" type="text" readonly />
+          </label>
+          <div class="action-row">
+            <button id="copyShareUrlBtn" type="button" class="ghost-btn">Link kopieren</button>
+            <button id="copyRawTokenBtn" type="button" class="ghost-btn">Token kopieren</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Aktive Tokens</h2>
+          <button id="refreshTokensBtn" type="button" class="ghost-btn">Neu laden</button>
+        </div>
+        <p id="tokensStatus" class="status"></p>
+        <ul id="tokensList" class="token-list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>

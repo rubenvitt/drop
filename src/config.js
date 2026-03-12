@@ -22,6 +22,8 @@ const defaultAllowedMime = [
 ];
 
 export function loadConfig(env = process.env) {
+  const authDbPath = env.AUTH_DB_PATH ?? '/data/auth/better-auth.sqlite';
+
   return {
     host: env.HOST ?? '0.0.0.0',
     port: toInt(env.PORT, 8080),
@@ -29,16 +31,18 @@ export function loadConfig(env = process.env) {
     metaDir: env.META_DIR ?? '/data/meta',
     maxFileSizeMb: toInt(env.MAX_FILE_SIZE_MB, 500),
     allowedMime: env.ALLOWED_MIME ? splitCsv(env.ALLOWED_MIME) : defaultAllowedMime,
-    authMode: env.AUTH_MODE ?? 'none',
-    basicUser: env.BASIC_USER ?? '',
-    basicPass: env.BASIC_PASS ?? '',
-    tokenSecret: env.TOKEN_SECRET ?? '',
-    allowedSubnets: splitCsv(env.ALLOWED_SUBNETS ?? '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12'),
     maxParallelUploads: toInt(env.MAX_PARALLEL_UPLOADS, 3),
     rateLimitPerMin: toInt(env.RATE_LIMIT_PER_MIN, 30),
     timezone: env.TZ ?? 'Europe/Berlin',
     caddyDomain: env.CADDY_DOMAIN ?? 'drop.local',
     nodeEnv: env.NODE_ENV ?? 'production',
-    staticDir: path.join(process.cwd(), 'public')
+    staticDir: path.join(process.cwd(), 'public'),
+    authDbPath,
+    authDbDir: path.dirname(authDbPath),
+    betterAuthSecret: env.BETTER_AUTH_SECRET ?? '',
+    betterAuthBaseUrl: env.BETTER_AUTH_BASE_URL ?? '',
+    pocketIdDiscoveryUrl: env.POCKET_ID_DISCOVERY_URL ?? '',
+    pocketIdClientId: env.POCKET_ID_CLIENT_ID ?? '',
+    pocketIdClientSecret: env.POCKET_ID_CLIENT_SECRET ?? ''
   };
 }
