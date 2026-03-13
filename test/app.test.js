@@ -393,6 +393,40 @@ test('lists, creates and revokes share tokens for an authenticated admin', async
   assert.equal(deleteResponse.json().success, true);
 });
 
+test('creates QR code previews for authenticated admins', async (t) => {
+  const { app, tempDir } = await createTestApp();
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const unauthorized = await app.inject({
+    method: 'POST',
+    url: '/api/admin/qrcode',
+    payload: JSON.stringify({
+      data: 'https://drop.example/u/dz-k234-5678-abcd'
+    }),
+    headers: {
+      'content-type': 'application/json'
+    }
+  });
+  assert.equal(unauthorized.statusCode, 401);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/admin/qrcode',
+    payload: JSON.stringify({
+      data: 'https://drop.example/u/dz-k234-5678-abcd'
+    }),
+    headers: {
+      cookie: SESSION_COOKIE,
+      'content-type': 'application/json'
+    }
+  });
+  assert.equal(response.statusCode, 200);
+  assert.match(response.json().dataUrl, /^data:image\/png;base64,/);
+});
+
 test('starts Pocket ID login and clears session on logout', async (t) => {
   const { app, tempDir } = await createTestApp();
   t.after(async () => {

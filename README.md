@@ -5,6 +5,7 @@ Eine minimale Upload-Webapp mit Pocket-ID-geschütztem Admin-Panel und verteilba
 ## Features
 - Browser-Login über Pocket ID (OIDC via Better Auth).
 - Admin-Panel zum Erzeugen, Anzeigen und Widerrufen von Share-Tokens.
+- Admin-Panel mit QR-Code-Vorschau und Download für lokal bekannte Share-Links.
 - Direkte Share-Links unter `/u/<token>` für externe Nutzer ohne Pocket-ID-Login.
 - Mehrfach-Upload mit Drag & Drop, Hinweis und Kategorie.
 - Upload-Härtung: Dateinamen-Sanitizing, atomare Writes, Rate-Limit, parallele Upload-Grenze.
@@ -96,6 +97,8 @@ pnpm test
 ```
 
 ## QR-Code
+
+Im Admin-Panel kann für in diesem Browser erzeugte Freigaben direkt ein QR-Code erzeugt und als PNG heruntergeladen werden.
 
 ```bash
 node scripts/generate-qr.js "https://drop.iuk-ue.de/u/<token>" ./qr/drop.png

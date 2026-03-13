@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import * as Sentry from '@sentry/node';
+import QRCode from 'qrcode';
 import { loadConfig } from './config.js';
 import { createRateLimiter, requestIp, Semaphore } from './security.js';
 import { FILE_WRITE_PERMISSION } from './share-token-config.js';
@@ -15,6 +16,7 @@ const DEFAULT_TOKEN_EXPIRES_IN_HOURS = 12;
 const MAX_TOKEN_EXPIRES_IN_HOURS = 72;
 const DEFAULT_ADMIN_RETURN_TO = '/admin';
 const APP_PATH = '/app';
+const MAX_QR_DATA_LENGTH = 2048;
 
 function toHeadersObject(nodeHeaders = {}) {
   const headers = new Headers();
@@ -101,7 +103,7 @@ function shouldRateLimit(req) {
   const url = req.raw.url ?? req.url ?? '';
   const method = req.method.toUpperCase();
 
-  if (method === 'POST' && (url === '/upload' || url === '/api/admin/tokens')) {
+  if (method === 'POST' && (url === '/upload' || url === '/api/admin/tokens' || url === '/api/admin/qrcode')) {
     return true;
   }
 
@@ -193,6 +195,18 @@ function captureUnexpectedServerError(error, context = {}) {
     }
 
     Sentry.captureException(error);
+  });
+}
+
+async function createQrCodeDataUrl(value) {
+  return QRCode.toDataURL(value, {
+    type: 'image/png',
+    margin: 1,
+    errorCorrectionLevel: 'M',
+    color: {
+      dark: '#0f172a',
+      light: '#ffffff'
+    }
   });
 }
 
@@ -594,6 +608,21 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       });
     } catch (error) {
       return sendApiError(reply, error, 'Could not create token');
+    }
+  });
+
+  app.post('/api/admin/qrcode', { preHandler: requireSession('api') }, async (req, reply) => {
+    const data = typeof req.body?.data === 'string' ? req.body.data.trim() : '';
+    if (!data || data.length > MAX_QR_DATA_LENGTH) {
+      return reply.code(400).send({ error: 'Invalid QR code payload' });
+    }
+
+    try {
+      return reply.send({
+        dataUrl: await createQrCodeDataUrl(data)
+      });
+    } catch (error) {
+      return sendApiError(reply, error, 'Could not generate QR code');
     }
   });
 
