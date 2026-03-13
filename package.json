@@ -5,12 +5,13 @@
   "type": "module",
   "description": "Minimal robust dropzone upload service",
   "scripts": {
-    "start": "node src/start.js",
+    "start": "node --import ./instrument.mjs src/start.js",
     "test": "node --test",
     "qr": "node scripts/generate-qr.js"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@sentry-internal/node-cpu-profiler",
       "better-sqlite3"
     ]
   },
@@ -19,6 +20,9 @@
     "@better-auth/cli": "^1.4.21",
     "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^9.0.0",
+    "@sentry/browser": "^10.43.0",
+    "@sentry/node": "^10.43.0",
+    "@sentry/profiling-node": "^10.43.0",
     "better-auth": "^1.5.5",
     "better-sqlite3": "^12.6.2",
     "dotenv": "^17.3.1",

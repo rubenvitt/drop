@@ -39,6 +39,8 @@ Siehe `.env.example`. Die wichtigsten Variablen:
 - `POCKET_ID_DISCOVERY_URL`: OIDC Discovery URL deiner Pocket-ID-Instanz.
 - `POCKET_ID_CLIENT_ID`
 - `POCKET_ID_CLIENT_SECRET`
+- `SENTRY_NODE_DSN`: DSN für das Node/Fastify-SDK.
+- `SENTRY_ENVIRONMENT`: Sentry-Environment, z. B. `production`.
 - `AUTH_DB_PATH=/data/auth/better-auth.sqlite`
 - `UPLOAD_DIR=/uploads`
 - `META_DIR=/data/meta`
@@ -71,6 +73,12 @@ Persistente Daten:
 - Auth/SQLite: `./data/auth:/data/auth`
 
 Wichtig: `./data/auth` muss für den Container-User beschreibbar sein, sonst scheitert der Better-Auth-Migrationsschritt direkt beim Start.
+
+## Sentry
+
+- Das Node-SDK wird beim Start per `node --import ./instrument.mjs src/start.js` vor allen anderen App-Modulen initialisiert.
+- Die Browser-Integration wird in `public/sentry-init.js` initialisiert und nutzt den lokal vendorten offiziellen Bundle unter `public/vendor/sentry-browser.bundle.min.js`, weil die App kein Frontend-Bundling verwendet.
+- Für Fastify-Tracing und Node-Profiling sind `@sentry/node` und `@sentry/profiling-node` installiert; Browser-Tracing und Replay laufen über die vendorte Bundle-Version `10.43.0`.
 
 ## Share-Links
 

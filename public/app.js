@@ -1,5 +1,6 @@
 import { isShareLinkPath, resolveUploadPath } from './ui-utils.js';
 
+const Sentry = window.Sentry;
 const fileInput = document.getElementById('files');
 const uploadBtn = document.getElementById('uploadBtn');
 const dropzone = document.getElementById('dropzone');
@@ -13,6 +14,24 @@ const logoutBtn = document.getElementById('logoutBtn');
 
 const shareMode = isShareLinkPath(window.location.pathname);
 const uploadPath = resolveUploadPath(window.location.pathname);
+
+Sentry?.setTag('surface', shareMode ? 'share-upload' : 'upload-app');
+Sentry?.setContext('upload', {
+  mode: shareMode ? 'share-link' : 'session',
+  path: uploadPath
+});
+
+const setSentrySession = (payload) => {
+  Sentry?.setUser({
+    id: payload.user.id,
+    email: payload.user.email,
+    username: payload.user.name
+  });
+  Sentry?.setContext('session', {
+    id: payload.session.id,
+    expiresAt: payload.session.expiresAt
+  });
+};
 
 const parseJson = (text) => {
   if (!text) return null;
@@ -126,6 +145,7 @@ async function loadSessionNavigation() {
   }
 
   const payload = await response.json();
+  setSentrySession(payload);
   sessionLabel.textContent = payload.user.name || payload.user.email;
   sessionNav.hidden = false;
 }
