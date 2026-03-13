@@ -236,7 +236,7 @@ test('shows a welcome page at root and protects upload endpoint by session', asy
     url: '/'
   });
   assert.equal(pageResponse.statusCode, 200);
-  assert.match(pageResponse.body, /Zugangscode oder Share-Link eingeben/);
+  assert.match(pageResponse.body, /Zugangscode oder Freigabelink eingeben/);
 
   const sessionPageResponse = await app.inject({
     method: 'GET',

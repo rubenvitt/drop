@@ -27,23 +27,23 @@ const errorMessageFor = (status, payload) => {
   const rawError = String(payload?.error ?? '');
 
   if (status === 401 || status === 403) {
-    return 'Upload nicht erlaubt. Bitte Login oder Share-Link prüfen.';
+    return 'Upload nicht möglich. Bitte prüfen Sie Anmeldung oder Freigabelink.';
   }
 
   if (status === 413) {
-    return 'Datei zu groß. Bitte kleinere Datei wählen oder Serverlimit erhöhen.';
+    return 'Die Datei überschreitet die zulässige Größe. Bitte wählen Sie eine kleinere Datei.';
   }
 
   if (status === 415) {
-    return 'Dateityp nicht erlaubt. Bitte einen unterstützten Dateityp wählen.';
+    return 'Dieser Dateityp ist nicht freigegeben. Bitte wählen Sie einen zulässigen Dateityp.';
   }
 
   if (rawError.includes('EACCES') || rawError.includes('/uploads')) {
-    return 'Server kann nicht in den Upload-Ordner schreiben. Bitte Server-Berechtigungen prüfen.';
+    return 'Der Server kann Dateien derzeit nicht speichern. Bitte prüfen Sie die Berechtigungen.';
   }
 
   if (status >= 500) {
-    return 'Upload fehlgeschlagen. Bitte später erneut versuchen oder Server-Logs prüfen.';
+    return 'Die Übermittlung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
   }
 
   return `Upload fehlgeschlagen (${status}).`;
@@ -51,7 +51,7 @@ const errorMessageFor = (status, payload) => {
 
 const renderItem = (file) => {
   const li = document.createElement('li');
-  li.innerHTML = `<strong>${file.name}</strong><br><progress class="progress" max="100" value="0"></progress><span class="meta">Wartet…</span>`;
+  li.innerHTML = `<strong>${file.name}</strong><br><progress class="progress" max="100" value="0"></progress><span class="meta">Bereit</span>`;
   queue.appendChild(li);
   return li;
 };
@@ -78,12 +78,12 @@ const uploadFile = (file, li) =>
     xhr.addEventListener('load', () => {
       const ok = xhr.status >= 200 && xhr.status < 300;
       const payload = parseJson(xhr.responseText);
-      metaEl.textContent = ok ? 'Fertig' : errorMessageFor(xhr.status, payload);
+      metaEl.textContent = ok ? 'Abgeschlossen' : errorMessageFor(xhr.status, payload);
       resolve(ok);
     });
 
     xhr.addEventListener('error', () => {
-      metaEl.textContent = 'Netzwerkfehler';
+      metaEl.textContent = 'Netzwerkfehler bei der Übertragung';
       resolve(false);
     });
 
@@ -95,7 +95,7 @@ const handleFiles = async (fileList) => {
   const files = [...fileList];
   if (files.length === 0) return;
 
-  statusEl.textContent = `Upload gestartet (${files.length} Datei(en))...`;
+  statusEl.textContent = `Übertragung gestartet: ${files.length} Datei(en).`;
   queue.innerHTML = '';
 
   let successCount = 0;
@@ -107,7 +107,7 @@ const handleFiles = async (fileList) => {
     if (ok) successCount += 1;
   }
 
-  statusEl.textContent = `${successCount}/${files.length} Datei(en) erfolgreich hochgeladen.`;
+  statusEl.textContent = `${successCount} von ${files.length} Datei(en) erfolgreich übertragen.`;
 };
 
 async function loadSessionNavigation() {

@@ -20,11 +20,11 @@ if (presetToken) {
 }
 
 if (error === 'oidc_failed') {
-  setMessage('Pocket-ID-Login fehlgeschlagen. Bitte erneut versuchen.', 'error');
+  setMessage('Die Anmeldung über Pocket ID konnte nicht gestartet werden. Bitte versuchen Sie es erneut.', 'error');
 }
 
 if (error === 'invalid_token') {
-  setMessage('Der Zugangscode ist ungültig oder abgelaufen. Bitte Code oder Share-Link prüfen.', 'error');
+  setMessage('Der eingegebene Zugangscode ist ungültig oder bereits abgelaufen. Bitte prüfen Sie Ihre Angaben.', 'error');
 }
 
 loginButton.addEventListener('click', () => {
@@ -36,7 +36,7 @@ tokenForm.addEventListener('submit', (event) => {
 
   const normalizedToken = normalizeShareTokenInput(shareTokenInput.value);
   if (!normalizedToken) {
-    setMessage('Bitte einen Zugangscode oder kompletten Share-Link eingeben.', 'error');
+    setMessage('Bitte geben Sie einen Zugangscode oder einen vollständigen Freigabelink ein.', 'error');
     shareTokenInput.focus();
     return;
   }
