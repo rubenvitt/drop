@@ -7,9 +7,9 @@ import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { loadConfig } from './config.js';
 import { createRateLimiter, requestIp, Semaphore } from './security.js';
+import { FILE_WRITE_PERMISSION } from './share-token-config.js';
 import { ensureDir, findAvailableFilePath, sanitizeCategory, sanitizeFilename } from './utils.js';
 
-const FILE_WRITE_PERMISSION = { files: ['write'] };
 const DEFAULT_TOKEN_EXPIRES_IN_DAYS = 30;
 const MAX_TOKEN_EXPIRES_IN_DAYS = 365;
 
@@ -469,9 +469,7 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
     try {
       const created = await resolvedAuthService.createApiKey(req.headers, {
         name,
-        userId: req.authSession.user.id,
         expiresIn: daysToSeconds(expiresInDays),
-        permissions: FILE_WRITE_PERMISSION,
         metadata: {
           createdFor: 'dropzone-share-link'
         }
