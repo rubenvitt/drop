@@ -6,7 +6,17 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { createApp } from '../src/app.js';
 
 const SESSION_COOKIE = 'session=admin-session';
-const VALID_SHARE_TOKEN = 'dz_validsharetoken0001';
+const VALID_SHARE_TOKEN = 'dz-k234-5678-abcd';
+
+function createShareToken(seed) {
+  const body = String(seed)
+    .toLowerCase()
+    .replace(/[^a-z2-9]/g, 'k')
+    .padEnd(12, 'm')
+    .slice(0, 12);
+
+  return `dz-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8)}`;
+}
 
 class StubAuthService {
   constructor(baseUrl) {
@@ -37,7 +47,7 @@ class StubAuthService {
       id,
       key,
       name,
-      prefix: 'dz_',
+      prefix: 'dz-',
       start: key.slice(0, 8),
       enabled: true,
       permissions: { files: ['write'] },
@@ -100,7 +110,7 @@ class StubAuthService {
 
   async createApiKey(_headers, body) {
     this.lastCreateApiKeyBody = body;
-    const key = `dz_createdtoken${String(this.apiKeys.length + 1).padStart(4, '0')}`;
+    const key = createShareToken(this.apiKeys.length + 1);
     const apiKey = this.#buildApiKey({
       id: `key-${this.apiKeys.length + 1}`,
       key,
@@ -214,7 +224,7 @@ async function createTestApp() {
   };
 }
 
-test('redirects browser routes to login and protects upload endpoint by session', async (t) => {
+test('shows a welcome page at root and protects upload endpoint by session', async (t) => {
   const { app, config, tempDir } = await createTestApp();
   t.after(async () => {
     await app.close();
@@ -225,8 +235,25 @@ test('redirects browser routes to login and protects upload endpoint by session'
     method: 'GET',
     url: '/'
   });
-  assert.equal(pageResponse.statusCode, 302);
-  assert.equal(pageResponse.headers.location, '/login?returnTo=%2F');
+  assert.equal(pageResponse.statusCode, 200);
+  assert.match(pageResponse.body, /Zugangscode oder Share-Link eingeben/);
+
+  const sessionPageResponse = await app.inject({
+    method: 'GET',
+    url: '/',
+    headers: {
+      cookie: SESSION_COOKIE
+    }
+  });
+  assert.equal(sessionPageResponse.statusCode, 302);
+  assert.equal(sessionPageResponse.headers.location, '/app');
+
+  const protectedPageResponse = await app.inject({
+    method: 'GET',
+    url: '/app'
+  });
+  assert.equal(protectedPageResponse.statusCode, 302);
+  assert.equal(protectedPageResponse.headers.location, '/?returnTo=%2Fapp');
 
   const anonymousUpload = await app.inject({
     method: 'POST',
@@ -272,7 +299,8 @@ test('accepts valid share links and rejects invalid ones', async (t) => {
     method: 'GET',
     url: '/u/dz_invalidtoken'
   });
-  assert.equal(invalidPage.statusCode, 401);
+  assert.equal(invalidPage.statusCode, 302);
+  assert.equal(invalidPage.headers.location, '/?error=invalid_token&token=dz_invalidtoken');
 
   const multipart = createMultipartPayload();
   const uploadResponse = await app.inject({
@@ -331,14 +359,14 @@ test('lists, creates and revokes share tokens for an authenticated admin', async
     },
     payload: JSON.stringify({
       name: 'Neuer Link',
-      expiresInDays: 14
+      expiresInHours: 24
     })
   });
   assert.equal(createResponse.statusCode, 201);
-  assert.match(createResponse.json().rawToken, /^dz_/);
+  assert.match(createResponse.json().rawToken, /^dz-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
   assert.deepEqual(authService.lastCreateApiKeyBody, {
     name: 'Neuer Link',
-    expiresIn: 14 * 24 * 60 * 60,
+    expiresIn: 24 * 60 * 60,
     metadata: {
       createdFor: 'dropzone-share-link'
     }
@@ -387,5 +415,5 @@ test('starts Pocket ID login and clears session on logout', async (t) => {
     }
   });
   assert.equal(logoutResponse.statusCode, 302);
-  assert.equal(logoutResponse.headers.location, '/login');
+  assert.equal(logoutResponse.headers.location, '/');
 });

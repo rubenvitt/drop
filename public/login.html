@@ -3,20 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dropzone Login</title>
+    <title>FüKw Dropzone</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <main class="container auth-shell">
-      <section class="auth-card">
-        <p class="eyebrow">Pocket ID</p>
-        <h1>Admin-Zugang</h1>
-        <p class="lead">
-          Das Admin-Panel und die direkte App-Nutzung sind nur nach Pocket-ID-Login erreichbar.
-        </p>
-        <p id="loginMessage" class="status"></p>
-        <button id="pocketIdLoginBtn" type="button">Mit Pocket ID anmelden</button>
+  <body class="welcome-body">
+    <main class="welcome-shell">
+      <section class="welcome-hero">
+        <div class="welcome-copy">
+          <p class="eyebrow">FüKw Dropzone</p>
+          <h1>Dateien schnell annehmen, ohne Umwege.</h1>
+          <p class="lead">
+            Externe Nutzer geben einen kurzen Zugangscode ein oder öffnen ihren Share-Link. Admins melden
+            sich per Pocket ID an und erzeugen kurzlebige Zugänge in wenigen Klicks.
+          </p>
+          <div class="welcome-tags">
+            <span class="welcome-tag">Kurze Zugangscodes</span>
+            <span class="welcome-tag">Direkter Upload</span>
+            <span class="welcome-tag">Pocket-ID-Admin</span>
+          </div>
+        </div>
+
+        <div class="welcome-panels">
+          <section class="card welcome-card">
+            <p class="eyebrow">Token-Zugang</p>
+            <h2>Zugangscode oder Share-Link eingeben</h2>
+            <p class="lead">
+              Hier kann ein empfangener Code direkt eingegeben werden. Ein kompletter Share-Link funktioniert
+              ebenfalls.
+            </p>
+            <form id="tokenAccessForm" class="controls">
+              <input
+                id="shareTokenInput"
+                name="shareToken"
+                type="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="z. B. dz-k234-5678-abcd oder kompletter Link"
+              />
+              <button type="submit">Mit Code öffnen</button>
+            </form>
+            <p class="mini-note">Auch per Funk übermittelte Codes lassen sich hier direkt öffnen.</p>
+          </section>
+
+          <section class="card welcome-card welcome-card-secondary">
+            <p class="eyebrow">Admin</p>
+            <h2>Tokens erstellen und verwalten</h2>
+            <p class="lead">
+              Admins erzeugen kurzlebige Upload-Zugänge, widerrufen sie bei Bedarf und wechseln anschließend
+              direkt ins Panel.
+            </p>
+            <button id="pocketIdLoginBtn" type="button">Mit Pocket ID anmelden</button>
+            <p class="mini-note">Nach dem Login geht es direkt in die Administration.</p>
+          </section>
+        </div>
       </section>
+
+      <section class="welcome-info">
+        <article class="card info-card">
+          <p class="eyebrow">1</p>
+          <h3>Link oder Code empfangen</h3>
+          <p class="status">Die Eingabe akzeptiert kurze Codes und vollständige Share-Links.</p>
+        </article>
+        <article class="card info-card">
+          <p class="eyebrow">2</p>
+          <h3>Upload direkt starten</h3>
+          <p class="status">Nach erfolgreicher Eingabe landet der Nutzer unmittelbar in der Upload-App.</p>
+        </article>
+        <article class="card info-card">
+          <p class="eyebrow">3</p>
+          <h3>Kurzlebige Freigaben</h3>
+          <p class="status">Neue Tokens laufen standardmaessig nach Stunden ab und nicht erst nach Wochen.</p>
+        </article>
+      </section>
+
+      <p id="welcomeMessage" class="status welcome-status" aria-live="polite"></p>
     </main>
 
     <script type="module" src="/login.js"></script>

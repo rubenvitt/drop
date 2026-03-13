@@ -47,11 +47,11 @@ function renderTokens(tokens) {
   tokensList.innerHTML = '';
 
   if (tokens.length === 0) {
-    tokensStatus.textContent = 'Noch keine Share-Links vorhanden.';
+    tokensStatus.textContent = 'Noch keine Zugangscodes vorhanden.';
     return;
   }
 
-  tokensStatus.textContent = `${tokens.length} Token(s) aktiv.`;
+  tokensStatus.textContent = `${tokens.length} Zugangscode(s) aktiv.`;
 
   for (const token of tokens) {
     const item = document.createElement('li');
@@ -70,7 +70,7 @@ function renderTokens(tokens) {
 }
 
 async function loadTokens() {
-  tokensStatus.textContent = 'Lade Tokens…';
+  tokensStatus.textContent = 'Lade Zugangscodes…';
   const payload = await fetchJson('/api/admin/tokens');
   renderTokens(payload.tokens);
 }
@@ -90,7 +90,7 @@ async function logout() {
     return;
   }
 
-  window.location.href = '/login';
+  window.location.href = '/';
 }
 
 tokenForm.addEventListener('submit', async (event) => {
@@ -104,7 +104,7 @@ tokenForm.addEventListener('submit', async (event) => {
       },
       body: JSON.stringify({
         name: tokenNameInput.value.trim(),
-        expiresInDays: tokenExpiryInput.value
+        expiresInHours: tokenExpiryInput.value
       })
     });
 
@@ -113,7 +113,7 @@ tokenForm.addEventListener('submit', async (event) => {
     rawTokenOutput.value = payload.rawToken;
     newTokenResult.hidden = false;
     tokenForm.reset();
-    tokenExpiryInput.value = '30';
+    tokenExpiryInput.value = '12';
     await loadTokens();
   } catch (error) {
     showLoadError(error);
@@ -147,7 +147,7 @@ function showLoadError(error) {
 
 Promise.all([loadSession(), loadTokens()]).catch((error) => {
   if (error.status === 401) {
-    window.location.href = '/login?returnTo=/admin';
+    window.location.href = '/?returnTo=/admin';
     return;
   }
 

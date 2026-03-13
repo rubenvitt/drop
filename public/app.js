@@ -121,7 +121,7 @@ async function loadSessionNavigation() {
   });
 
   if (!response.ok) {
-    window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+    window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
     return;
   }
 
@@ -141,7 +141,7 @@ async function logout() {
     return;
   }
 
-  window.location.href = '/login';
+  window.location.href = '/';
 }
 
 uploadBtn.addEventListener('click', () => fileInput.click());
@@ -168,6 +168,6 @@ dropzone.addEventListener('drop', (event) => {
 
 loadSessionNavigation().catch(() => {
   if (!shareMode) {
-    window.location.href = `/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+    window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
   }
 });
