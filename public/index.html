@@ -8,8 +8,18 @@
   </head>
   <body>
     <main class="container">
-      <h1>FüKw Dropzone</h1>
-      <p>Dateien per Drag & Drop oder Button hochladen.</p>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Dropzone</p>
+          <h1>FüKw Dropzone</h1>
+          <p class="lead">Dateien per Drag & Drop oder Button hochladen.</p>
+        </div>
+        <nav class="session-nav" id="sessionNav" hidden>
+          <span id="sessionLabel" class="session-label"></span>
+          <a id="adminLink" href="/admin">Admin-Panel</a>
+          <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
+        </nav>
+      </header>
 
       <label class="dropzone" id="dropzone" for="files">
         <input id="files" type="file" multiple />
@@ -31,6 +41,6 @@
       <p id="status" class="status"></p>
     </main>
 
-    <script src="/app.js" defer></script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>

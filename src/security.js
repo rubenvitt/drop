@@ -62,18 +62,11 @@ function getIp(req) {
   return req.ip;
 }
 
-function parseBasic(authHeader = '') {
-  if (!authHeader.startsWith('Basic ')) {
-    return null;
-  }
-
-  const encoded = authHeader.slice(6);
-  const decoded = Buffer.from(encoded, 'base64').toString('utf8');
-  const [user, pass] = decoded.split(':');
-  return { user, pass };
+export function requestIp(req) {
+  return getIp(req);
 }
 
-function isIpInSubnets(ip, subnets) {
+export function isIpInSubnets(ip, subnets) {
   if (!ipaddr.isValid(ip)) {
     return false;
   }
@@ -92,44 +85,4 @@ function isIpInSubnets(ip, subnets) {
       return false;
     }
   });
-}
-
-export function authGuard(config) {
-  return async function guard(req, reply) {
-    const mode = config.authMode;
-    if (mode === 'none') {
-      return;
-    }
-
-    if (mode === 'basic') {
-      const creds = parseBasic(req.headers.authorization);
-      if (!creds || creds.user !== config.basicUser || creds.pass !== config.basicPass) {
-        reply.header('WWW-Authenticate', 'Basic realm="Dropzone"');
-        return reply.code(401).send({ error: 'Unauthorized' });
-      }
-      return;
-    }
-
-    if (mode === 'token') {
-      const pathToken = req.params?.token;
-      if (!pathToken || pathToken !== config.tokenSecret) {
-        return reply.code(401).send({ error: 'Invalid token' });
-      }
-      return;
-    }
-
-    if (mode === 'subnet') {
-      const ip = getIp(req);
-      if (!isIpInSubnets(ip, config.allowedSubnets)) {
-        return reply.code(403).send({ error: 'Forbidden by subnet policy' });
-      }
-      return;
-    }
-
-    return reply.code(500).send({ error: 'Invalid AUTH_MODE configuration' });
-  };
-}
-
-export function requestIp(req) {
-  return getIp(req);
 }
