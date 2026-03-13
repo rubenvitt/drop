@@ -40,6 +40,8 @@ if (error === 'invalid_token') {
 }
 
 loginButton.addEventListener('click', () => {
+  loginButton.disabled = true;
+  loginButton.textContent = 'Anmeldung wird gestartet…';
   window.location.href = `/login/pocketid?returnTo=${encodeURIComponent(returnTo)}`;
 });
 
@@ -54,5 +56,10 @@ tokenForm.addEventListener('submit', (event) => {
   }
 
   setMessage('');
+  const submitButton = tokenForm.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = 'Öffnet…';
+  }
   window.location.href = `/u/${encodeURIComponent(normalizedToken)}`;
 });

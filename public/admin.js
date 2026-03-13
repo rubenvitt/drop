@@ -10,6 +10,7 @@ import {
 const Sentry = window.Sentry;
 const logoutBtn = document.getElementById('logoutBtn');
 const sessionSummary = document.getElementById('sessionSummary');
+const storageWarning = document.getElementById('storageWarning');
 const tokenForm = document.getElementById('tokenForm');
 const tokenNameInput = document.getElementById('tokenName');
 const tokenExpiryInput = document.getElementById('tokenExpiry');
@@ -21,6 +22,7 @@ const copyShareUrlBtn = document.getElementById('copyShareUrlBtn');
 const copyRawTokenBtn = document.getElementById('copyRawTokenBtn');
 const refreshTokensBtn = document.getElementById('refreshTokensBtn');
 const tokensStatus = document.getElementById('tokensStatus');
+const adminLiveStatus = document.getElementById('adminLiveStatus');
 const tokensList = document.getElementById('tokensList');
 
 let activeTokens = [];
@@ -31,6 +33,8 @@ let selectedQrTokenId = '';
 let qrLoadingTokenId = '';
 let qrErrorTokenId = '';
 let qrErrorMessage = '';
+
+showStorageWarning();
 
 Sentry?.setTag('surface', 'admin');
 
@@ -51,7 +55,16 @@ async function fetchJson(url, options = {}) {
   }
 
   if (!response.ok) {
-    const error = new Error(payload?.error || `Request failed (${response.status})`);
+    let message = payload?.error || `Request failed (${response.status})`;
+    if (response.status === 401 || response.status === 403) {
+      message = 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.';
+    } else if (response.status === 429) {
+      message = 'Zu viele Anfragen. Bitte versuchen Sie es in wenigen Sekunden erneut.';
+    } else if (response.status >= 500) {
+      message = 'Der Server ist derzeit nicht erreichbar. Bitte versuchen Sie es erneut.';
+    }
+
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
@@ -68,6 +81,35 @@ function setStatusMessage(element, message, tone = '') {
   }
 
   delete element.dataset.tone;
+}
+
+function announceLiveStatus(message) {
+  if (!adminLiveStatus) {
+    return;
+  }
+
+  adminLiveStatus.textContent = message;
+}
+
+function showStorageWarning() {
+  if (!storageWarning) {
+    return;
+  }
+
+  if (localShareTokenStorageAvailable) {
+    storageWarning.hidden = true;
+    storageWarning.textContent = '';
+    return;
+  }
+
+  storageWarning.hidden = false;
+  storageWarning.textContent =
+    'Lokaler Browser-Speicher ist deaktiviert. Link- und QR-Vorschau stehen nur eingeschränkt zur Verfügung.';
+}
+
+function setButtonBusy(button, busy, busyLabel, idleLabel) {
+  button.disabled = busy;
+  button.textContent = busy ? busyLabel : idleLabel;
 }
 
 function loadLocalShareTokens() {
@@ -87,6 +129,8 @@ function persistLocalShareTokens() {
     localShareTokenStorageAvailable = false;
     Sentry?.captureException?.(error);
   }
+
+  showStorageWarning();
 }
 
 async function loadSession() {
@@ -129,47 +173,88 @@ function triggerQrDownload(token, dataUrl) {
   link.click();
 }
 
-function buildTokenPreview(token, localToken) {
+function createMetaLine(text) {
+  const line = document.createElement('p');
+  line.className = 'token-meta';
+  line.textContent = text;
+  return line;
+}
+
+function createActionButton(action, keyId, label, disabled = false, title = '') {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost-btn';
+  button.dataset.action = action;
+  button.dataset.keyId = keyId;
+  button.textContent = label;
+  button.disabled = disabled;
+  if (title) {
+    button.title = title;
+  }
+  return button;
+}
+
+function createTokenPreview(token, localToken) {
   if (selectedQrTokenId !== token.id || !localToken) {
-    return '';
+    return null;
   }
 
-  const shareUrl = createLocalShareUrl(window.location.origin, localToken.rawToken);
-  const qrDataUrl = generatedQrCodeCache.get(token.id) ?? '';
-  const isLoading = qrLoadingTokenId === token.id;
-  const errorMessage = qrErrorTokenId === token.id ? qrErrorMessage : '';
+  const preview = document.createElement('div');
+  preview.className = 'token-preview';
 
-  return `
-    <div class="token-preview">
-      <label class="result-field">
-        <span>Freigabelink</span>
-        <input type="text" readonly value="${shareUrl}" />
-      </label>
-      ${isLoading ? '<p class="status">QR-Code wird erzeugt…</p>' : ''}
-      ${errorMessage ? `<p class="status" data-tone="error">${errorMessage}</p>` : ''}
-      ${qrDataUrl ? `<div class="qr-preview"><img alt="QR-Code" src="${qrDataUrl}" /></div>` : ''}
-      <div class="action-row token-preview-actions">
-        <button type="button" class="ghost-btn" data-action="copy-link" data-key-id="${token.id}">
-          Link kopieren
-        </button>
-        <button
-          type="button"
-          class="ghost-btn"
-          data-action="download-qr"
-          data-key-id="${token.id}"
-          ${qrDataUrl ? '' : 'disabled'}
-        >
-          QR herunterladen
-        </button>
-      </div>
-    </div>
-  `;
+  const field = document.createElement('label');
+  field.className = 'result-field';
+  const fieldLabel = document.createElement('span');
+  fieldLabel.textContent = 'Freigabelink';
+  const fieldInput = document.createElement('input');
+  fieldInput.type = 'text';
+  fieldInput.readOnly = true;
+  fieldInput.value = createLocalShareUrl(window.location.origin, localToken.rawToken);
+  field.append(fieldLabel, fieldInput);
+  preview.appendChild(field);
+
+  if (qrLoadingTokenId === token.id) {
+    const loading = document.createElement('p');
+    loading.className = 'status';
+    loading.textContent = 'QR-Code wird erzeugt…';
+    preview.appendChild(loading);
+  }
+
+  if (qrErrorTokenId === token.id && qrErrorMessage) {
+    const error = document.createElement('p');
+    error.className = 'status';
+    error.dataset.tone = 'error';
+    error.textContent = qrErrorMessage;
+    preview.appendChild(error);
+  }
+
+  const qrDataUrl = generatedQrCodeCache.get(token.id) ?? '';
+  if (qrDataUrl) {
+    const qrPreview = document.createElement('div');
+    qrPreview.className = 'qr-preview';
+    const image = document.createElement('img');
+    image.alt = `QR-Code für ${token.name}`;
+    image.src = qrDataUrl;
+    qrPreview.appendChild(image);
+    preview.appendChild(qrPreview);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'action-row token-preview-actions';
+  actions.append(
+    createActionButton('copy-link', token.id, 'Link kopieren'),
+    createActionButton('download-qr', token.id, 'QR herunterladen', !qrDataUrl)
+  );
+
+  preview.appendChild(actions);
+  return preview;
 }
 
 function renderTokens(tokens) {
-  tokensList.innerHTML = '';
+  const fragment = document.createDocumentFragment();
 
   if (tokens.length === 0) {
+    tokensList.replaceChildren();
     setStatusMessage(tokensStatus, 'Derzeit sind keine aktiven Freigaben vorhanden.');
     return;
   }
@@ -181,33 +266,50 @@ function renderTokens(tokens) {
     const localToken = knownTokens.get(token.id) ?? null;
     const item = document.createElement('li');
     item.className = 'token-card';
-    item.innerHTML = `
-      <div class="token-card-head">
-        <div class="token-main">
-          <strong>${token.name}</strong>
-          <p class="token-meta">${token.displayToken}</p>
-          <p class="token-meta">Erstellt: ${new Date(token.createdAt).toLocaleString('de-DE')}</p>
-          <p class="token-meta">Ablauf: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Ohne Ablauf'}</p>
-        </div>
-        <div class="token-actions">
-          <button
-            type="button"
-            class="ghost-btn"
-            data-action="toggle-qr"
-            data-key-id="${token.id}"
-            ${localToken ? '' : 'disabled title="Nur für lokal bekannte Tokens verfügbar"'}
-          >
-            QR
-          </button>
-          <button type="button" class="ghost-btn" data-action="revoke" data-key-id="${token.id}">
-            Widerrufen
-          </button>
-        </div>
-      </div>
-      ${buildTokenPreview(token, localToken)}
-    `;
-    tokensList.appendChild(item);
+
+    const head = document.createElement('div');
+    head.className = 'token-card-head';
+
+    const main = document.createElement('div');
+    main.className = 'token-main';
+
+    const name = document.createElement('strong');
+    name.textContent = token.name;
+
+    main.append(
+      name,
+      createMetaLine(token.displayToken),
+      createMetaLine(`Erstellt: ${new Date(token.createdAt).toLocaleString('de-DE')}`),
+      createMetaLine(
+        `Ablauf: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Ohne Ablauf'}`
+      )
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'token-actions';
+    actions.append(
+      createActionButton(
+        'toggle-qr',
+        token.id,
+        'QR',
+        !localToken,
+        localToken ? '' : 'Nur für lokal bekannte Tokens verfügbar'
+      ),
+      createActionButton('revoke', token.id, 'Widerrufen')
+    );
+
+    head.append(main, actions);
+    item.appendChild(head);
+
+    const preview = createTokenPreview(token, localToken);
+    if (preview) {
+      item.appendChild(preview);
+    }
+
+    fragment.appendChild(item);
   }
+
+  tokensList.replaceChildren(fragment);
 }
 
 async function ensureQrCodeForToken(tokenId) {
@@ -303,12 +405,14 @@ async function loadTokens(preferredQrTokenId = '') {
   }
 }
 
-async function copyText(value) {
+async function copyText(value, successMessage = 'In Zwischenablage kopiert.') {
   if (!value) {
     return;
   }
 
   await navigator.clipboard.writeText(value);
+  setStatusMessage(tokensStatus, successMessage, 'success');
+  announceLiveStatus(successMessage);
 }
 
 async function logout() {
@@ -327,6 +431,13 @@ async function logout() {
 
 tokenForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const submitButton = tokenForm.querySelector('button[type="submit"]');
+  if (!(submitButton instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  setButtonBusy(submitButton, true, 'Wird erstellt…', 'Freigabe erstellen');
+  setStatusMessage(tokensStatus, 'Neue Freigabe wird erstellt…');
 
   try {
     const payload = await fetchJson('/api/admin/tokens', {
@@ -358,8 +469,12 @@ tokenForm.addEventListener('submit', async (event) => {
     tokenForm.reset();
     tokenExpiryInput.value = '12';
     await loadTokens(payload.token.id);
+    setStatusMessage(tokensStatus, 'Freigabe erfolgreich erstellt.', 'success');
+    announceLiveStatus('Freigabe erfolgreich erstellt.');
   } catch (error) {
     showLoadError(error);
+  } finally {
+    setButtonBusy(submitButton, false, 'Wird erstellt…', 'Freigabe erstellen');
   }
 });
 
@@ -383,7 +498,10 @@ tokensList.addEventListener('click', async (event) => {
     if (action === 'copy-link') {
       const token = getLocallyKnownTokenMap().get(keyId);
       if (token) {
-        await copyText(createLocalShareUrl(window.location.origin, token.rawToken));
+        await copyText(
+          createLocalShareUrl(window.location.origin, token.rawToken),
+          `Freigabelink für "${token.name}" kopiert.`
+        );
       }
       return;
     }
@@ -393,11 +511,23 @@ tokensList.addEventListener('click', async (event) => {
       const dataUrl = generatedQrCodeCache.get(keyId) ?? '';
       if (token && dataUrl) {
         triggerQrDownload(token, dataUrl);
+        setStatusMessage(tokensStatus, `QR-Code für "${token.name}" heruntergeladen.`, 'success');
+        announceLiveStatus(`QR-Code für ${token.name} heruntergeladen.`);
       }
       return;
     }
 
     if (action === 'revoke') {
+      const tokenToRevoke = activeTokens.find((token) => token.id === keyId);
+      const revokeLabel = tokenToRevoke?.name ? `"${tokenToRevoke.name}"` : 'diese Freigabe';
+      const confirmed = window.confirm(`Möchten Sie ${revokeLabel} wirklich widerrufen?`);
+      if (!confirmed) {
+        return;
+      }
+
+      button.disabled = true;
+      setStatusMessage(tokensStatus, `Freigabe ${revokeLabel} wird widerrufen…`);
+
       await fetchJson(`/api/admin/tokens/${keyId}`, {
         method: 'DELETE'
       });
@@ -414,15 +544,30 @@ tokensList.addEventListener('click', async (event) => {
       }
 
       await loadTokens();
+      setStatusMessage(tokensStatus, `Freigabe ${revokeLabel} wurde widerrufen.`, 'success');
+      announceLiveStatus(`Freigabe ${revokeLabel} wurde widerrufen.`);
     }
   } catch (error) {
     showLoadError(error);
   }
 });
 
-copyShareUrlBtn.addEventListener('click', () => copyText(shareUrlOutput.value));
-copyRawTokenBtn.addEventListener('click', () => copyText(rawTokenOutput.value));
-refreshTokensBtn.addEventListener('click', () => loadTokens().catch(showLoadError));
+copyShareUrlBtn.addEventListener('click', () =>
+  copyText(shareUrlOutput.value, 'Freigabelink der neuen Freigabe kopiert.').catch(showLoadError)
+);
+copyRawTokenBtn.addEventListener('click', () =>
+  copyText(rawTokenOutput.value, 'Zugangscode der neuen Freigabe kopiert.').catch(showLoadError)
+);
+refreshTokensBtn.addEventListener('click', async () => {
+  setButtonBusy(refreshTokensBtn, true, 'Lädt…', 'Aktualisieren');
+  try {
+    await loadTokens();
+  } catch (error) {
+    showLoadError(error);
+  } finally {
+    setButtonBusy(refreshTokensBtn, false, 'Lädt…', 'Aktualisieren');
+  }
+});
 logoutBtn.addEventListener('click', logout);
 
 function showLoadError(error) {

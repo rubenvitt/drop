@@ -27,7 +27,8 @@
 
       <section class="card">
         <h2>Angemeldete Sitzung</h2>
-        <p id="sessionSummary" class="status">Sitzung wird geladen…</p>
+        <p id="sessionSummary" class="status" role="status" aria-live="polite">Sitzung wird geladen…</p>
+        <p id="storageWarning" class="status" data-tone="error" hidden></p>
       </section>
 
       <section class="card">
@@ -76,7 +77,8 @@
           <h2>Aktive Freigaben</h2>
           <button id="refreshTokensBtn" type="button" class="ghost-btn">Aktualisieren</button>
         </div>
-        <p id="tokensStatus" class="status"></p>
+        <p id="tokensStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <p id="adminLiveStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
         <ul id="tokensList" class="token-list"></ul>
       </section>
     </main>

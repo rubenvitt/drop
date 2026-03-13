@@ -23,13 +23,21 @@
         </nav>
       </header>
 
+      <section class="card context-card" id="uploadContext" aria-live="polite">
+        <h2 id="uploadContextTitle">Upload in Ihrer Sitzung</h2>
+        <p id="uploadContextHint" class="mini-note">Sie sind angemeldet und können Freigaben verwalten.</p>
+      </section>
+
       <label class="dropzone" id="dropzone" for="files">
+        <span class="visually-hidden" id="dropzoneLabel">Dateien für den Upload auswählen</span>
         <input id="files" type="file" multiple />
         <span>Dateien hier ablegen oder zur Auswahl klicken</span>
       </label>
 
       <div class="controls">
+        <label class="visually-hidden" for="hint">Hinweis zur Übermittlung</label>
         <input id="hint" type="text" maxlength="500" placeholder="Hinweis zur Übermittlung (optional)" />
+        <label class="visually-hidden" for="category">Kategorie auswählen</label>
         <select id="category">
           <option value="">Kategorie auswählen (optional)</option>
           <option value="bilder">Bilder</option>
@@ -40,7 +48,7 @@
       </div>
 
       <ul id="queue" class="queue"></ul>
-      <p id="status" class="status"></p>
+      <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
     </main>
 
     <script type="module" src="/app.js"></script>

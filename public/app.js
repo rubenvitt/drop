@@ -11,9 +11,12 @@ const categoryInput = document.getElementById('category');
 const sessionNav = document.getElementById('sessionNav');
 const sessionLabel = document.getElementById('sessionLabel');
 const logoutBtn = document.getElementById('logoutBtn');
+const uploadContextTitle = document.getElementById('uploadContextTitle');
+const uploadContextHint = document.getElementById('uploadContextHint');
 
 const shareMode = isShareLinkPath(window.location.pathname);
 const uploadPath = resolveUploadPath(window.location.pathname);
+let isUploading = false;
 
 Sentry?.setTag('surface', shareMode ? 'share-upload' : 'upload-app');
 Sentry?.setContext('upload', {
@@ -40,6 +43,16 @@ const parseJson = (text) => {
   } catch {
     return null;
   }
+};
+
+const setStatusMessage = (message, tone = '') => {
+  statusEl.textContent = message;
+  if (tone) {
+    statusEl.dataset.tone = tone;
+    return;
+  }
+
+  delete statusEl.dataset.tone;
 };
 
 const errorMessageFor = (status, payload) => {
@@ -70,7 +83,22 @@ const errorMessageFor = (status, payload) => {
 
 const renderItem = (file) => {
   const li = document.createElement('li');
-  li.innerHTML = `<strong>${file.name}</strong><br><progress class="progress" max="100" value="0"></progress><span class="meta">Bereit</span>`;
+
+  const title = document.createElement('strong');
+  title.textContent = file.name;
+
+  const lineBreak = document.createElement('br');
+
+  const progress = document.createElement('progress');
+  progress.className = 'progress';
+  progress.max = 100;
+  progress.value = 0;
+
+  const meta = document.createElement('span');
+  meta.className = 'meta';
+  meta.textContent = 'Bereit';
+
+  li.append(title, lineBreak, progress, meta);
   queue.appendChild(li);
   return li;
 };
@@ -111,23 +139,58 @@ const uploadFile = (file, li) =>
   });
 
 const handleFiles = async (fileList) => {
+  if (isUploading) {
+    setStatusMessage('Es läuft bereits eine Übertragung. Bitte warten Sie kurz.');
+    return;
+  }
+
   const files = [...fileList];
   if (files.length === 0) return;
 
-  statusEl.textContent = `Übertragung gestartet: ${files.length} Datei(en).`;
-  queue.innerHTML = '';
+  isUploading = true;
+  setStatusMessage(`Übertragung gestartet: ${files.length} Datei(en).`);
+  queue.replaceChildren();
+  uploadBtn.disabled = true;
+  fileInput.disabled = true;
+  dropzone.setAttribute('aria-busy', 'true');
 
-  let successCount = 0;
-  for (const file of files) {
-    const li = renderItem(file);
-    // Sequential uploads keep browser/network pressure aligned with backend limits.
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await uploadFile(file, li);
-    if (ok) successCount += 1;
+  try {
+    let successCount = 0;
+    for (const file of files) {
+      const li = renderItem(file);
+      // Sequential uploads keep browser/network pressure aligned with backend limits.
+      // eslint-disable-next-line no-await-in-loop
+      const ok = await uploadFile(file, li);
+      if (ok) successCount += 1;
+    }
+
+    setStatusMessage(
+      `${successCount} von ${files.length} Datei(en) erfolgreich übertragen.`,
+      successCount === files.length ? 'success' : 'error'
+    );
+  } finally {
+    isUploading = false;
+    uploadBtn.disabled = false;
+    fileInput.disabled = false;
+    dropzone.removeAttribute('aria-busy');
+  }
+};
+
+function renderUploadContext() {
+  if (!uploadContextTitle || !uploadContextHint) {
+    return;
   }
 
-  statusEl.textContent = `${successCount} von ${files.length} Datei(en) erfolgreich übertragen.`;
-};
+  if (shareMode) {
+    uploadContextTitle.textContent = 'Upload per Freigabelink';
+    uploadContextHint.textContent =
+      'Dieser Zugang ist auf die Dateiübermittlung beschränkt und besitzt keine Verwaltungsrechte.';
+    return;
+  }
+
+  uploadContextTitle.textContent = 'Upload in Ihrer Sitzung';
+  uploadContextHint.textContent = 'Sie sind angemeldet und können Freigaben in der Verwaltung steuern.';
+}
 
 async function loadSessionNavigation() {
   if (shareMode) {
@@ -191,3 +254,5 @@ loadSessionNavigation().catch(() => {
     window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
   }
 });
+
+renderUploadContext();

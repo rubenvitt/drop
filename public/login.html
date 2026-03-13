@@ -23,6 +23,7 @@
             <h2>Zugangscode eingeben</h2>
             <p id="welcomeMessage" class="welcome-alert" aria-live="assertive" role="alert" hidden></p>
             <form id="tokenAccessForm" class="controls">
+              <label class="visually-hidden" for="shareTokenInput">Zugangscode oder Freigabelink</label>
               <input
                 id="shareTokenInput"
                 name="shareToken"
@@ -30,11 +31,13 @@
                 autocomplete="off"
                 autocapitalize="off"
                 spellcheck="false"
+                aria-describedby="tokenHelp welcomeMessage"
                 placeholder="z. B. dz-k234-5678-abcd oder vollständiger Link"
+                required
               />
               <button type="submit">Upload öffnen</button>
             </form>
-            <p class="mini-note">Alternativ kann ein vollständiger Freigabelink eingefügt werden.</p>
+            <p class="mini-note" id="tokenHelp">Alternativ kann ein vollständiger Freigabelink eingefügt werden.</p>
           </section>
 
           <section class="card welcome-card welcome-card-secondary">
