@@ -12,10 +12,10 @@
         <div>
           <p class="eyebrow">Admin</p>
           <h1>Share-Links verwalten</h1>
-          <p class="lead">Neue Tokens erzeugen, bestehende Links prüfen und Zugänge widerrufen.</p>
+          <p class="lead">Kurze Zugangscodes erzeugen, bestehende Links pruefen und Zugaenge widerrufen.</p>
         </div>
         <nav class="session-nav">
-          <a href="/">Zur Upload-App</a>
+          <a href="/app">Zur Upload-App</a>
           <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
         </nav>
       </header>
@@ -29,16 +29,19 @@
         <h2>Neuen Share-Link erzeugen</h2>
         <form id="tokenForm" class="controls">
           <input id="tokenName" name="name" type="text" maxlength="64" placeholder="Name des Links" required />
-          <input
+          <select
             id="tokenExpiry"
-            name="expiresInDays"
-            type="number"
-            min="1"
-            max="365"
-            value="30"
-            placeholder="Ablauf in Tagen"
-          />
-          <button type="submit">Token erzeugen</button>
+            name="expiresInHours"
+          >
+            <option value="1">1 Stunde</option>
+            <option value="2">2 Stunden</option>
+            <option value="6">6 Stunden</option>
+            <option value="12" selected>12 Stunden</option>
+            <option value="24">24 Stunden</option>
+            <option value="48">2 Tage</option>
+            <option value="72">3 Tage</option>
+          </select>
+          <button type="submit">Zugangscode erzeugen</button>
         </form>
 
         <div id="newTokenResult" class="result-card" hidden>
@@ -49,19 +52,19 @@
             <input id="shareUrlOutput" type="text" readonly />
           </label>
           <label class="result-field">
-            <span>Rohes Token</span>
+            <span>Zugangscode</span>
             <input id="rawTokenOutput" type="text" readonly />
           </label>
           <div class="action-row">
             <button id="copyShareUrlBtn" type="button" class="ghost-btn">Link kopieren</button>
-            <button id="copyRawTokenBtn" type="button" class="ghost-btn">Token kopieren</button>
+            <button id="copyRawTokenBtn" type="button" class="ghost-btn">Code kopieren</button>
           </div>
         </div>
       </section>
 
       <section class="card">
         <div class="section-head">
-          <h2>Aktive Tokens</h2>
+          <h2>Aktive Zugangscodes</h2>
           <button id="refreshTokensBtn" type="button" class="ghost-btn">Neu laden</button>
         </div>
         <p id="tokensStatus" class="status"></p>

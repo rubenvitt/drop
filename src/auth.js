@@ -11,10 +11,11 @@ import {
   FILE_WRITE_PERMISSION,
   SHARE_TOKEN_ALPHABET,
   SHARE_TOKEN_LENGTH,
+  SHARE_TOKEN_SEGMENT_LENGTH,
   SHARE_TOKEN_PREFIX
 } from './share-token-config.js';
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const DEFAULT_SHARE_TOKEN_EXPIRES_IN_SECONDS = 12 * 60 * 60;
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const ONE_DAY_SECONDS = 24 * 60 * 60;
 
@@ -34,6 +35,16 @@ function randomShareToken(length) {
   }
 
   return value;
+}
+
+function formatShareToken(value) {
+  const groups = [];
+
+  for (let index = 0; index < value.length; index += SHARE_TOKEN_SEGMENT_LENGTH) {
+    groups.push(value.slice(index, index + SHARE_TOKEN_SEGMENT_LENGTH));
+  }
+
+  return groups.join('-');
 }
 
 function createAuthInstance(config) {
@@ -74,14 +85,15 @@ function createAuthInstance(config) {
           charactersLength: 8
         },
         keyExpiration: {
-          defaultExpiresIn: THIRTY_DAYS_MS,
-          minExpiresIn: 1,
-          maxExpiresIn: 365
+          defaultExpiresIn: DEFAULT_SHARE_TOKEN_EXPIRES_IN_SECONDS,
+          minExpiresIn: 1 / 24,
+          maxExpiresIn: 3
         },
         rateLimit: {
           enabled: false
         },
-        customKeyGenerator: ({ prefix = SHARE_TOKEN_PREFIX }) => `${prefix}${randomShareToken(SHARE_TOKEN_LENGTH)}`
+        customKeyGenerator: ({ prefix = SHARE_TOKEN_PREFIX }) =>
+          `${prefix}${formatShareToken(randomShareToken(SHARE_TOKEN_LENGTH))}`
       })
     ]
   });

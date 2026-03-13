@@ -11,8 +11,9 @@ Eine minimale Upload-Webapp mit Pocket-ID-geschütztem Admin-Panel und verteilba
 - Persistente Auth-Daten in SQLite unter `/data/auth/better-auth.sqlite`.
 
 ## Wichtige Routen
-- `GET /login`: Login-Seite mit Pocket-ID-Start.
-- `GET /`: Upload-App für eingeloggte Admins.
+- `GET /`: Öffentliche Welcome-Page mit Token-Eingabe und Pocket-ID-Start.
+- `GET /login`: Alias auf die Welcome-Page.
+- `GET /app`: Upload-App für eingeloggte Admins.
 - `GET /admin`: Token-Verwaltung für eingeloggte Admins.
 - `GET /u/<token>`: Upload-App über Share-Link.
 - `POST /api/admin/tokens`: Share-Token erstellen.
@@ -75,6 +76,8 @@ Wichtig: `./data/auth` muss für den Container-User beschreibbar sein, sonst sch
 
 - Neue Share-Links werden im Admin-Panel erzeugt.
 - Jeder Link zeigt auf `/u/<token>`.
+- Zusätzlich kann der Zugangscode auf der Welcome-Page direkt eingegeben werden.
+- Neue Zugangscodes sind kürzer gruppiert und standardmäßig nur für Stunden bis wenige Tage gültig.
 - Der Upload-Endpoint wird clientseitig automatisch zu `/u/<token>/upload` aufgelöst.
 - Bereits existierende `TOKEN_SECRET`-Links aus der alten Auth werden nicht migriert.
 

@@ -10,8 +10,10 @@ import { createRateLimiter, requestIp, Semaphore } from './security.js';
 import { FILE_WRITE_PERMISSION } from './share-token-config.js';
 import { ensureDir, findAvailableFilePath, sanitizeCategory, sanitizeFilename } from './utils.js';
 
-const DEFAULT_TOKEN_EXPIRES_IN_DAYS = 30;
-const MAX_TOKEN_EXPIRES_IN_DAYS = 365;
+const DEFAULT_TOKEN_EXPIRES_IN_HOURS = 12;
+const MAX_TOKEN_EXPIRES_IN_HOURS = 72;
+const DEFAULT_ADMIN_RETURN_TO = '/admin';
+const APP_PATH = '/app';
 
 function toHeadersObject(nodeHeaders = {}) {
   const headers = new Headers();
@@ -117,6 +119,25 @@ function getAuthPageRedirectTarget(req) {
   return normalizeReturnTo(req.raw.url ?? req.url ?? '/');
 }
 
+function buildWelcomeLocation({ returnTo, error, token } = {}) {
+  const search = new URLSearchParams();
+
+  if (returnTo) {
+    search.set('returnTo', normalizeReturnTo(returnTo));
+  }
+
+  if (error) {
+    search.set('error', error);
+  }
+
+  if (token) {
+    search.set('token', token);
+  }
+
+  const query = search.toString();
+  return query ? `/?${query}` : '/';
+}
+
 function mapSession(session) {
   return {
     session: {
@@ -133,12 +154,12 @@ function mapSession(session) {
 }
 
 function mapApiKey(apiKey) {
-  const mask = `${apiKey.start ?? apiKey.prefix ?? 'dz_'}...`;
+  const mask = `${apiKey.start ?? apiKey.prefix ?? 'dz-'}...`;
 
   return {
     id: apiKey.id,
     name: apiKey.name ?? 'Unbenannt',
-    prefix: apiKey.prefix ?? 'dz_',
+    prefix: apiKey.prefix ?? 'dz-',
     start: apiKey.start ?? null,
     displayToken: mask,
     enabled: Boolean(apiKey.enabled),
@@ -147,21 +168,21 @@ function mapApiKey(apiKey) {
   };
 }
 
-function parseTokenExpiryDays(value) {
+function parseTokenExpiryHours(value) {
   if (value == null || value === '') {
-    return DEFAULT_TOKEN_EXPIRES_IN_DAYS;
+    return DEFAULT_TOKEN_EXPIRES_IN_HOURS;
   }
 
   const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > MAX_TOKEN_EXPIRES_IN_DAYS) {
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > MAX_TOKEN_EXPIRES_IN_HOURS) {
     return null;
   }
 
   return parsed;
 }
 
-function daysToSeconds(days) {
-  return days * 24 * 60 * 60;
+function hoursToSeconds(hours) {
+  return hours * 60 * 60;
 }
 
 function sendApiError(reply, error, fallbackMessage) {
@@ -318,8 +339,11 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
 
       if (!session) {
         if (mode === 'page') {
-          const search = new URLSearchParams({ returnTo: getAuthPageRedirectTarget(req) });
-          return reply.redirect(`/login?${search.toString()}`);
+          return reply.redirect(
+            buildWelcomeLocation({
+              returnTo: getAuthPageRedirectTarget(req)
+            })
+          );
         }
 
         return reply.code(401).send({ error: 'Unauthorized' });
@@ -328,18 +352,52 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       req.authSession = session;
     };
 
-  const requireShareToken = async (req, reply) => {
-    const token = req.params?.token;
-    if (!token) {
-      return reply.code(401).send({ error: 'Invalid token' });
+  const requireShareToken = (mode = 'api') =>
+    async function shareTokenGuard(req, reply) {
+      const token = req.params?.token;
+      if (!token) {
+        if (mode === 'page') {
+          return reply.redirect(
+            buildWelcomeLocation({
+              error: 'invalid_token'
+            })
+          );
+        }
+
+        return reply.code(401).send({ error: 'Invalid token' });
+      }
+
+      const result = await resolvedAuthService.verifyApiKey(token, FILE_WRITE_PERMISSION);
+      if (!result.valid || !result.key) {
+        if (mode === 'page') {
+          return reply.redirect(
+            buildWelcomeLocation({
+              error: 'invalid_token',
+              token
+            })
+          );
+        }
+
+        return reply.code(401).send({ error: 'Invalid token' });
+      }
+
+      req.shareKey = result.key;
+    };
+
+  const showWelcomePage = async (req, reply) => {
+    const session = await resolvedAuthService.getSession(req.headers);
+    const hasWelcomeContext = Boolean(req.query?.error || req.query?.token);
+
+    if (session && !hasWelcomeContext) {
+      const returnTo = normalizeReturnTo(req.query?.returnTo);
+      if (returnTo === '/' || returnTo === '/login' || returnTo === '/login.html') {
+        return reply.redirect(APP_PATH);
+      }
+
+      return reply.redirect(returnTo);
     }
 
-    const result = await resolvedAuthService.verifyApiKey(token, FILE_WRITE_PERMISSION);
-    if (!result.valid || !result.key) {
-      return reply.code(401).send({ error: 'Invalid token' });
-    }
-
-    req.shareKey = result.key;
+    return reply.sendFile('login.html');
   };
 
   app.route({
@@ -362,19 +420,14 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
 
   app.get('/api/session', { preHandler: requireSession('api') }, async (req) => mapSession(req.authSession));
 
-  app.get('/login', async (req, reply) => {
-    const session = await resolvedAuthService.getSession(req.headers);
-    if (session) {
-      return reply.redirect(normalizeReturnTo(req.query?.returnTo));
-    }
+  app.get('/', showWelcomePage);
 
-    return reply.sendFile('login.html');
-  });
+  app.get('/login', showWelcomePage);
 
-  app.get('/login.html', async (_, reply) => reply.redirect('/login'));
+  app.get('/login.html', async (_, reply) => reply.redirect('/'));
 
   app.get('/login/pocketid', async (req, reply) => {
-    const returnTo = normalizeReturnTo(req.query?.returnTo);
+    const returnTo = normalizeReturnTo(req.query?.returnTo ?? DEFAULT_ADMIN_RETURN_TO);
     const loginRequest = buildAuthRequest(config, '/api/auth/sign-in/oauth2', {
       method: 'POST',
       headers: req.headers,
@@ -382,10 +435,10 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
         providerId: 'pocketid',
         callbackURL: returnTo,
         newUserCallbackURL: returnTo,
-        errorCallbackURL: `/login?${new URLSearchParams({
+        errorCallbackURL: buildWelcomeLocation({
           returnTo,
           error: 'oidc_failed'
-        }).toString()}`,
+        }),
         disableRedirect: true
       }
     });
@@ -424,18 +477,18 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       return reply.code(response.status).send({ error: 'Logout failed' });
     }
 
-    return reply.redirect('/login');
+    return reply.redirect('/');
   });
 
   app.get('/admin', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('admin.html'));
 
   app.get('/admin.html', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('admin.html'));
 
-  app.get('/u/:token', { preHandler: requireShareToken }, async (_, reply) => reply.sendFile('index.html'));
+  app.get('/app', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
 
-  app.get('/', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
+  app.get('/u/:token', { preHandler: requireShareToken('page') }, async (_, reply) => reply.sendFile('index.html'));
 
-  app.get('/index.html', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
+  app.get('/index.html', { preHandler: requireSession('page') }, async (_, reply) => reply.redirect(APP_PATH));
 
   app.get('/api/admin/tokens', { preHandler: requireSession('api') }, async (req, reply) => {
     try {
@@ -459,17 +512,17 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       return reply.code(400).send({ error: 'Name is required' });
     }
 
-    const expiresInDays = parseTokenExpiryDays(req.body?.expiresInDays);
-    if (!expiresInDays) {
+    const expiresInHours = parseTokenExpiryHours(req.body?.expiresInHours);
+    if (!expiresInHours) {
       return reply
         .code(400)
-        .send({ error: `expiresInDays must be between 1 and ${MAX_TOKEN_EXPIRES_IN_DAYS}` });
+        .send({ error: `expiresInHours must be between 1 and ${MAX_TOKEN_EXPIRES_IN_HOURS}` });
     }
 
     try {
       const created = await resolvedAuthService.createApiKey(req.headers, {
         name,
-        expiresIn: daysToSeconds(expiresInDays),
+        expiresIn: hoursToSeconds(expiresInHours),
         metadata: {
           createdFor: 'dropzone-share-link'
         }
@@ -498,7 +551,7 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
   });
 
   app.post('/upload', { preHandler: requireSession('api') }, uploadHandler);
-  app.post('/u/:token/upload', { preHandler: requireShareToken }, uploadHandler);
+  app.post('/u/:token/upload', { preHandler: requireShareToken() }, uploadHandler);
 
   app.setErrorHandler((error, _req, reply) => {
     if (error?.code === 'FST_REQ_FILE_TOO_LARGE') {
