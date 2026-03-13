@@ -43,15 +43,19 @@ async function loadSession() {
   sessionSummary.textContent = `${payload.user.name} (${payload.user.email})`;
 }
 
+function activeCountLabel(count) {
+  return count === 1 ? '1 aktive Freigabe.' : `${count} aktive Freigaben.`;
+}
+
 function renderTokens(tokens) {
   tokensList.innerHTML = '';
 
   if (tokens.length === 0) {
-    tokensStatus.textContent = 'Noch keine Zugangscodes vorhanden.';
+    tokensStatus.textContent = 'Derzeit sind keine aktiven Freigaben vorhanden.';
     return;
   }
 
-  tokensStatus.textContent = `${tokens.length} Zugangscode(s) aktiv.`;
+  tokensStatus.textContent = activeCountLabel(tokens.length);
 
   for (const token of tokens) {
     const item = document.createElement('li');
@@ -60,8 +64,8 @@ function renderTokens(tokens) {
       <div>
         <strong>${token.name}</strong>
         <p class="token-meta">${token.displayToken}</p>
-        <p class="token-meta">Erstellt: ${new Date(token.createdAt).toLocaleString('de-DE')}</p>
-        <p class="token-meta">Ablauf: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Kein Ablauf'}</p>
+        <p class="token-meta">Erstellt am: ${new Date(token.createdAt).toLocaleString('de-DE')}</p>
+        <p class="token-meta">Gültig bis: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Ohne Ablauf'}</p>
       </div>
       <button type="button" class="ghost-btn" data-key-id="${token.id}">Widerrufen</button>
     `;
@@ -70,7 +74,7 @@ function renderTokens(tokens) {
 }
 
 async function loadTokens() {
-  tokensStatus.textContent = 'Lade Zugangscodes…';
+  tokensStatus.textContent = 'Freigaben werden geladen…';
   const payload = await fetchJson('/api/admin/tokens');
   renderTokens(payload.tokens);
 }

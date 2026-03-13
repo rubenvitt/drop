@@ -10,29 +10,36 @@
     <main class="container admin-shell">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Admin</p>
-          <h1>Share-Links verwalten</h1>
-          <p class="lead">Kurze Zugangscodes erzeugen, bestehende Links pruefen und Zugaenge widerrufen.</p>
+          <p class="eyebrow">Administration</p>
+          <h1>Freigaben verwalten</h1>
+          <p class="lead">
+            Erstellen Sie zeitlich begrenzte Zugänge für externe Uploads, behalten Sie aktive Freigaben im
+            Blick und widerrufen Sie diese bei Bedarf.
+          </p>
         </div>
         <nav class="session-nav">
-          <a href="/app">Zur Upload-App</a>
+          <a href="/app">Zur Upload-Seite</a>
           <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
         </nav>
       </header>
 
       <section class="card">
-        <h2>Aktuelle Session</h2>
-        <p id="sessionSummary" class="status">Lade Session…</p>
+        <h2>Angemeldete Sitzung</h2>
+        <p id="sessionSummary" class="status">Sitzung wird geladen…</p>
       </section>
 
       <section class="card">
-        <h2>Neuen Share-Link erzeugen</h2>
+        <h2>Neue Freigabe erstellen</h2>
         <form id="tokenForm" class="controls">
-          <input id="tokenName" name="name" type="text" maxlength="64" placeholder="Name des Links" required />
-          <select
-            id="tokenExpiry"
-            name="expiresInHours"
-          >
+          <input
+            id="tokenName"
+            name="name"
+            type="text"
+            maxlength="64"
+            placeholder="Bezeichnung der Freigabe"
+            required
+          />
+          <select id="tokenExpiry" name="expiresInHours">
             <option value="1">1 Stunde</option>
             <option value="2">2 Stunden</option>
             <option value="6">6 Stunden</option>
@@ -41,14 +48,14 @@
             <option value="48">2 Tage</option>
             <option value="72">3 Tage</option>
           </select>
-          <button type="submit">Zugangscode erzeugen</button>
+          <button type="submit">Freigabe erstellen</button>
         </form>
 
         <div id="newTokenResult" class="result-card" hidden>
-          <h3>Neuer Share-Link</h3>
+          <h3>Freigabe erstellt</h3>
           <p id="newTokenName" class="result-name"></p>
           <label class="result-field">
-            <span>Share-Link</span>
+            <span>Freigabelink</span>
             <input id="shareUrlOutput" type="text" readonly />
           </label>
           <label class="result-field">
@@ -64,8 +71,8 @@
 
       <section class="card">
         <div class="section-head">
-          <h2>Aktive Zugangscodes</h2>
-          <button id="refreshTokensBtn" type="button" class="ghost-btn">Neu laden</button>
+          <h2>Aktive Freigaben</h2>
+          <button id="refreshTokensBtn" type="button" class="ghost-btn">Aktualisieren</button>
         </div>
         <p id="tokensStatus" class="status"></p>
         <ul id="tokensList" class="token-list"></ul>
