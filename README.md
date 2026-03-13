@@ -58,6 +58,8 @@ cd /opt/fuekw-dropzone
 cp .env.example .env
 sudo mkdir -p /srv/fuekw/drop_inbox
 sudo chown -R 1000:1000 /srv/fuekw/drop_inbox
+mkdir -p ./data/auth ./data/meta
+chown -R "$(id -u)":"$(id -g)" ./data/auth ./data/meta
 export DROP_UID=$(id -u) DROP_GID=$(id -g)
 docker compose up -d --build
 ```
@@ -66,6 +68,8 @@ Persistente Daten:
 - Uploads: `/srv/fuekw/drop_inbox:/uploads`
 - Metadaten: `./data/meta:/data/meta`
 - Auth/SQLite: `./data/auth:/data/auth`
+
+Wichtig: `./data/auth` muss für den Container-User beschreibbar sein, sonst scheitert der Better-Auth-Migrationsschritt direkt beim Start.
 
 ## Share-Links
 
