@@ -396,7 +396,16 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
     applyWebHeaders(reply, response.headers);
 
     if (!response.ok || !payload?.url) {
-      return reply.code(response.status).send({ error: 'Pocket ID login could not be started' });
+      req.log.error(
+        {
+          status: response.status,
+          payload
+        },
+        'Pocket ID login bootstrap failed'
+      );
+      return reply.code(response.status).send({
+        error: payload?.message ?? payload?.error ?? 'Pocket ID login could not be started'
+      });
     }
 
     return reply.redirect(payload.url);
