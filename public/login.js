@@ -13,11 +13,15 @@ const presetToken = normalizeShareTokenInput(params.get('token') || '');
 function setMessage(message, tone = 'info') {
   loginMessage.textContent = message;
   loginMessage.dataset.tone = tone;
+  loginMessage.hidden = !message;
+  shareTokenInput.setAttribute('aria-invalid', tone === 'error' ? 'true' : 'false');
 }
 
 if (presetToken) {
   shareTokenInput.value = presetToken;
 }
+
+setMessage('');
 
 if (error === 'oidc_failed') {
   setMessage('Die Anmeldung über Pocket ID konnte nicht gestartet werden. Bitte versuchen Sie es erneut.', 'error');
