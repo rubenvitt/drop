@@ -72,40 +72,6 @@
       </section>
 
       <section class="card">
-        <h2>QR-Code lokal erzeugen</h2>
-        <p class="mini-note">
-          Nur in diesem Browser erzeugte Freigaben stehen hier mit vollständigem Token zur Auswahl.
-        </p>
-        <div class="controls">
-          <select id="generatedTokenSelect" aria-label="Freigabe für Link-Ausgabe auswählen">
-            <option value="">Freigabe auswählen</option>
-          </select>
-          <label class="result-field">
-            <span>Generierter Freigabelink</span>
-            <input
-              id="generatedShareUrlOutput"
-              type="text"
-              readonly
-              placeholder="Wird nach Auswahl lokal aus dem Token erzeugt"
-            />
-          </label>
-        </div>
-        <div id="generatedQrCodePreview" class="result-card qr-preview" hidden>
-          <h3>QR-Code</h3>
-          <img id="generatedQrCodeImage" alt="QR-Code für ausgewählte Freigabe" />
-        </div>
-        <p id="generatedShareUrlStatus" class="status"></p>
-        <div class="action-row">
-          <button id="copyGeneratedShareUrlBtn" type="button" class="ghost-btn" disabled>
-            Link kopieren
-          </button>
-          <button id="downloadGeneratedQrBtn" type="button" class="ghost-btn" disabled>
-            QR-Code herunterladen
-          </button>
-        </div>
-      </section>
-
-      <section class="card">
         <div class="section-head">
           <h2>Aktive Freigaben</h2>
           <button id="refreshTokensBtn" type="button" class="ghost-btn">Aktualisieren</button>

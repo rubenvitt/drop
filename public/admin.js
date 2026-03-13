@@ -19,22 +19,18 @@ const shareUrlOutput = document.getElementById('shareUrlOutput');
 const rawTokenOutput = document.getElementById('rawTokenOutput');
 const copyShareUrlBtn = document.getElementById('copyShareUrlBtn');
 const copyRawTokenBtn = document.getElementById('copyRawTokenBtn');
-const generatedTokenSelect = document.getElementById('generatedTokenSelect');
-const generatedShareUrlOutput = document.getElementById('generatedShareUrlOutput');
-const generatedQrCodePreview = document.getElementById('generatedQrCodePreview');
-const generatedQrCodeImage = document.getElementById('generatedQrCodeImage');
-const generatedShareUrlStatus = document.getElementById('generatedShareUrlStatus');
-const copyGeneratedShareUrlBtn = document.getElementById('copyGeneratedShareUrlBtn');
-const downloadGeneratedQrBtn = document.getElementById('downloadGeneratedQrBtn');
 const refreshTokensBtn = document.getElementById('refreshTokensBtn');
 const tokensStatus = document.getElementById('tokensStatus');
 const tokensList = document.getElementById('tokensList');
+
 let activeTokens = [];
-let generatedShareLinkOptions = [];
 let localShareTokenStorageAvailable = true;
 let localShareTokens = loadLocalShareTokens();
 let generatedQrCodeCache = new Map();
-let generatedQrCodeRequestId = 0;
+let selectedQrTokenId = '';
+let qrLoadingTokenId = '';
+let qrErrorTokenId = '';
+let qrErrorMessage = '';
 
 Sentry?.setTag('surface', 'admin');
 
@@ -111,41 +107,10 @@ function activeCountLabel(count) {
   return count === 1 ? '1 aktive Freigabe.' : `${count} aktive Freigaben.`;
 }
 
-function renderTokens(tokens) {
-  tokensList.innerHTML = '';
-
-  if (tokens.length === 0) {
-    setStatusMessage(tokensStatus, 'Derzeit sind keine aktiven Freigaben vorhanden.');
-    return;
-  }
-
-  setStatusMessage(tokensStatus, activeCountLabel(tokens.length));
-
-  for (const token of tokens) {
-    const item = document.createElement('li');
-    item.className = 'token-card';
-    item.innerHTML = `
-      <div>
-        <strong>${token.name}</strong>
-        <p class="token-meta">${token.displayToken}</p>
-        <p class="token-meta">Erstellt am: ${new Date(token.createdAt).toLocaleString('de-DE')}</p>
-        <p class="token-meta">Gültig bis: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Ohne Ablauf'}</p>
-      </div>
-      <button type="button" class="ghost-btn" data-key-id="${token.id}">Widerrufen</button>
-    `;
-    tokensList.appendChild(item);
-  }
-}
-
-function buildGeneratedLinkOptionLabel(token) {
-  const expiryLabel = token.expiresAt
-    ? `bis ${new Date(token.expiresAt).toLocaleString('de-DE')}`
-    : 'ohne Ablauf';
-  return `${token.name} (${expiryLabel})`;
-}
-
-function getSelectedGeneratedToken(selectedId = generatedTokenSelect.value) {
-  return generatedShareLinkOptions.find((token) => token.id === selectedId) ?? null;
+function getLocallyKnownTokenMap() {
+  return new Map(
+    getGeneratedShareLinkOptions(activeTokens, localShareTokens).map((token) => [token.id, token])
+  );
 }
 
 function buildQrDownloadName(token) {
@@ -157,59 +122,108 @@ function buildQrDownloadName(token) {
   return `${baseName || 'freigabe'}-qr.png`;
 }
 
-function resetGeneratedQrCode() {
-  generatedQrCodeImage.removeAttribute('src');
-  generatedQrCodePreview.hidden = true;
-  downloadGeneratedQrBtn.disabled = true;
+function triggerQrDownload(token, dataUrl) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = buildQrDownloadName(token);
+  link.click();
 }
 
-function showGeneratedQrCode(dataUrl) {
-  generatedQrCodeImage.src = dataUrl;
-  generatedQrCodePreview.hidden = false;
-  downloadGeneratedQrBtn.disabled = false;
-}
-
-function updateGeneratedShareUrl(selectedId = generatedTokenSelect.value) {
-  const selectedToken = getSelectedGeneratedToken(selectedId);
-
-  if (selectedToken) {
-    generatedTokenSelect.value = selectedToken.id;
-  } else {
-    generatedTokenSelect.value = '';
+function buildTokenPreview(token, localToken) {
+  if (selectedQrTokenId !== token.id || !localToken) {
+    return '';
   }
 
-  generatedShareUrlOutput.value = selectedToken
-    ? createLocalShareUrl(window.location.origin, selectedToken.rawToken)
-    : '';
-  copyGeneratedShareUrlBtn.disabled = !selectedToken;
-  if (!selectedToken) {
-    resetGeneratedQrCode();
-  }
+  const shareUrl = createLocalShareUrl(window.location.origin, localToken.rawToken);
+  const qrDataUrl = generatedQrCodeCache.get(token.id) ?? '';
+  const isLoading = qrLoadingTokenId === token.id;
+  const errorMessage = qrErrorTokenId === token.id ? qrErrorMessage : '';
 
-  return selectedToken;
+  return `
+    <div class="token-preview">
+      <label class="result-field">
+        <span>Freigabelink</span>
+        <input type="text" readonly value="${shareUrl}" />
+      </label>
+      ${isLoading ? '<p class="status">QR-Code wird erzeugt…</p>' : ''}
+      ${errorMessage ? `<p class="status" data-tone="error">${errorMessage}</p>` : ''}
+      ${qrDataUrl ? `<div class="qr-preview"><img alt="QR-Code" src="${qrDataUrl}" /></div>` : ''}
+      <div class="action-row token-preview-actions">
+        <button type="button" class="ghost-btn" data-action="copy-link" data-key-id="${token.id}">
+          Link kopieren
+        </button>
+        <button
+          type="button"
+          class="ghost-btn"
+          data-action="download-qr"
+          data-key-id="${token.id}"
+          ${qrDataUrl ? '' : 'disabled'}
+        >
+          QR herunterladen
+        </button>
+      </div>
+    </div>
+  `;
 }
 
-async function loadGeneratedQrCode(selectedId = generatedTokenSelect.value) {
-  const selectedToken = updateGeneratedShareUrl(selectedId);
-  if (!selectedToken) {
-    const message =
-      activeTokens.length === 0
-        ? 'Erstellen Sie zuerst eine Freigabe.'
-        : 'Wählen Sie eine lokal bekannte Freigabe aus.';
-    setStatusMessage(generatedShareUrlStatus, message);
+function renderTokens(tokens) {
+  tokensList.innerHTML = '';
+
+  if (tokens.length === 0) {
+    setStatusMessage(tokensStatus, 'Derzeit sind keine aktiven Freigaben vorhanden.');
     return;
   }
 
-  const cachedDataUrl = generatedQrCodeCache.get(selectedToken.id);
-  if (cachedDataUrl) {
-    showGeneratedQrCode(cachedDataUrl);
-    setStatusMessage(generatedShareUrlStatus, 'QR-Code ist bereit.', 'success');
+  setStatusMessage(tokensStatus, activeCountLabel(tokens.length));
+  const knownTokens = getLocallyKnownTokenMap();
+
+  for (const token of tokens) {
+    const localToken = knownTokens.get(token.id) ?? null;
+    const item = document.createElement('li');
+    item.className = 'token-card';
+    item.innerHTML = `
+      <div class="token-card-head">
+        <div class="token-main">
+          <strong>${token.name}</strong>
+          <p class="token-meta">${token.displayToken}</p>
+          <p class="token-meta">Erstellt: ${new Date(token.createdAt).toLocaleString('de-DE')}</p>
+          <p class="token-meta">Ablauf: ${token.expiresAt ? new Date(token.expiresAt).toLocaleString('de-DE') : 'Ohne Ablauf'}</p>
+        </div>
+        <div class="token-actions">
+          <button
+            type="button"
+            class="ghost-btn"
+            data-action="toggle-qr"
+            data-key-id="${token.id}"
+            ${localToken ? '' : 'disabled title="Nur für lokal bekannte Tokens verfügbar"'}
+          >
+            QR
+          </button>
+          <button type="button" class="ghost-btn" data-action="revoke" data-key-id="${token.id}">
+            Widerrufen
+          </button>
+        </div>
+      </div>
+      ${buildTokenPreview(token, localToken)}
+    `;
+    tokensList.appendChild(item);
+  }
+}
+
+async function ensureQrCodeForToken(tokenId) {
+  const localToken = getLocallyKnownTokenMap().get(tokenId) ?? null;
+  if (!localToken || generatedQrCodeCache.has(tokenId)) {
+    qrLoadingTokenId = '';
+    qrErrorTokenId = '';
+    qrErrorMessage = '';
+    renderTokens(activeTokens);
     return;
   }
 
-  resetGeneratedQrCode();
-  setStatusMessage(generatedShareUrlStatus, 'QR-Code wird erzeugt…');
-  const requestId = ++generatedQrCodeRequestId;
+  qrLoadingTokenId = tokenId;
+  qrErrorTokenId = '';
+  qrErrorMessage = '';
+  renderTokens(activeTokens);
 
   try {
     const payload = await fetchJson('/api/admin/qrcode', {
@@ -218,86 +232,75 @@ async function loadGeneratedQrCode(selectedId = generatedTokenSelect.value) {
         'content-type': 'application/json'
       },
       body: JSON.stringify({
-        data: createLocalShareUrl(window.location.origin, selectedToken.rawToken)
+        data: createLocalShareUrl(window.location.origin, localToken.rawToken)
       })
     });
 
-    if (requestId !== generatedQrCodeRequestId || generatedTokenSelect.value !== selectedToken.id) {
+    generatedQrCodeCache.set(tokenId, payload.dataUrl);
+    if (selectedQrTokenId !== tokenId) {
       return;
     }
 
-    generatedQrCodeCache.set(selectedToken.id, payload.dataUrl);
-    showGeneratedQrCode(payload.dataUrl);
-    setStatusMessage(generatedShareUrlStatus, 'QR-Code ist bereit.', 'success');
+    qrLoadingTokenId = '';
+    renderTokens(activeTokens);
   } catch (error) {
-    if (requestId !== generatedQrCodeRequestId) {
+    if (selectedQrTokenId !== tokenId) {
       return;
     }
 
-    resetGeneratedQrCode();
-    setStatusMessage(generatedShareUrlStatus, error.message, 'error');
+    qrLoadingTokenId = '';
+    qrErrorTokenId = tokenId;
+    qrErrorMessage = error.message;
+    renderTokens(activeTokens);
   }
 }
 
-function renderGeneratedShareLinks(preferredId = '') {
-  generatedShareLinkOptions = getGeneratedShareLinkOptions(activeTokens, localShareTokens);
-  const selectedId =
-    preferredId && generatedShareLinkOptions.some((token) => token.id === preferredId)
-      ? preferredId
-      : generatedShareLinkOptions.some((token) => token.id === generatedTokenSelect.value)
-        ? generatedTokenSelect.value
-        : (generatedShareLinkOptions[0]?.id ?? '');
-
-  generatedTokenSelect.innerHTML = '';
-
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent =
-    generatedShareLinkOptions.length > 0 ? 'Freigabe auswählen' : 'Keine lokal bekannten Freigaben';
-  generatedTokenSelect.appendChild(placeholder);
-
-  for (const token of generatedShareLinkOptions) {
-    const option = document.createElement('option');
-    option.value = token.id;
-    option.textContent = buildGeneratedLinkOptionLabel(token);
-    generatedTokenSelect.appendChild(option);
-  }
-
-  generatedTokenSelect.disabled = generatedShareLinkOptions.length === 0;
-  if (generatedShareLinkOptions.length === 0) {
-    updateGeneratedShareUrl('');
-  } else {
-    void loadGeneratedQrCode(selectedId);
-  }
-
-  if (!localShareTokenStorageAvailable) {
+async function toggleQrPreview(tokenId) {
+  const localToken = getLocallyKnownTokenMap().get(tokenId) ?? null;
+  if (!localToken) {
     setStatusMessage(
-      generatedShareUrlStatus,
-      'Lokale Speicherung ist in diesem Browser nicht verfügbar. Neue Tokens sind nur bis zum Neuladen auswählbar.',
+      tokensStatus,
+      'QR-Codes sind nur für Freigaben verfügbar, die in diesem Browser erstellt wurden.',
       'error'
     );
     return;
   }
 
-  if (generatedShareLinkOptions.length === 0) {
-    const message =
-      activeTokens.length === 0
-        ? 'Erstellen Sie zuerst eine Freigabe.'
-        : 'Nur in diesem Browser erzeugte Freigaben stehen hier als vollständiger Link zur Verfügung.';
-    setStatusMessage(generatedShareUrlStatus, message);
+  if (selectedQrTokenId === tokenId) {
+    selectedQrTokenId = '';
+    qrLoadingTokenId = '';
+    qrErrorTokenId = '';
+    qrErrorMessage = '';
+    renderTokens(activeTokens);
+    setStatusMessage(tokensStatus, activeCountLabel(activeTokens.length));
     return;
   }
 
+  selectedQrTokenId = tokenId;
+  qrErrorTokenId = '';
+  qrErrorMessage = '';
+  renderTokens(activeTokens);
+  await ensureQrCodeForToken(tokenId);
 }
 
-async function loadTokens(preferredGeneratedTokenId = '') {
+async function loadTokens(preferredQrTokenId = '') {
   setStatusMessage(tokensStatus, 'Freigaben werden geladen…');
   const payload = await fetchJson('/api/admin/tokens');
   activeTokens = payload.tokens;
   localShareTokens = reconcileStoredShareTokens(localShareTokens, activeTokens);
   persistLocalShareTokens();
+
+  if (preferredQrTokenId && activeTokens.some((token) => token.id === preferredQrTokenId)) {
+    selectedQrTokenId = preferredQrTokenId;
+  } else if (!activeTokens.some((token) => token.id === selectedQrTokenId)) {
+    selectedQrTokenId = '';
+  }
+
   renderTokens(activeTokens);
-  renderGeneratedShareLinks(preferredGeneratedTokenId);
+
+  if (selectedQrTokenId) {
+    await ensureQrCodeForToken(selectedQrTokenId);
+  }
 }
 
 async function copyText(value) {
@@ -346,10 +349,12 @@ tokenForm.addEventListener('submit', async (event) => {
     });
     generatedQrCodeCache.delete(payload.token.id);
     persistLocalShareTokens();
+
     newTokenName.textContent = payload.token.name;
     shareUrlOutput.value = createLocalShareUrl(window.location.origin, payload.rawToken);
     rawTokenOutput.value = payload.rawToken;
     newTokenResult.hidden = false;
+
     tokenForm.reset();
     tokenExpiryInput.value = '12';
     await loadTokens(payload.token.id);
@@ -359,19 +364,57 @@ tokenForm.addEventListener('submit', async (event) => {
 });
 
 tokensList.addEventListener('click', async (event) => {
-  const button = event.target.closest('button[data-key-id]');
+  const button = event.target.closest('button[data-action][data-key-id]');
   if (!button) {
     return;
   }
 
+  const { action, keyId } = button.dataset;
+  if (!action || !keyId) {
+    return;
+  }
+
   try {
-    await fetchJson(`/api/admin/tokens/${button.dataset.keyId}`, {
-      method: 'DELETE'
-    });
-    localShareTokens = localShareTokens.filter((token) => token.id !== button.dataset.keyId);
-    generatedQrCodeCache.delete(button.dataset.keyId);
-    persistLocalShareTokens();
-    await loadTokens();
+    if (action === 'toggle-qr') {
+      await toggleQrPreview(keyId);
+      return;
+    }
+
+    if (action === 'copy-link') {
+      const token = getLocallyKnownTokenMap().get(keyId);
+      if (token) {
+        await copyText(createLocalShareUrl(window.location.origin, token.rawToken));
+      }
+      return;
+    }
+
+    if (action === 'download-qr') {
+      const token = getLocallyKnownTokenMap().get(keyId);
+      const dataUrl = generatedQrCodeCache.get(keyId) ?? '';
+      if (token && dataUrl) {
+        triggerQrDownload(token, dataUrl);
+      }
+      return;
+    }
+
+    if (action === 'revoke') {
+      await fetchJson(`/api/admin/tokens/${keyId}`, {
+        method: 'DELETE'
+      });
+
+      localShareTokens = localShareTokens.filter((token) => token.id !== keyId);
+      generatedQrCodeCache.delete(keyId);
+      persistLocalShareTokens();
+
+      if (selectedQrTokenId === keyId) {
+        selectedQrTokenId = '';
+        qrLoadingTokenId = '';
+        qrErrorTokenId = '';
+        qrErrorMessage = '';
+      }
+
+      await loadTokens();
+    }
   } catch (error) {
     showLoadError(error);
   }
@@ -379,22 +422,6 @@ tokensList.addEventListener('click', async (event) => {
 
 copyShareUrlBtn.addEventListener('click', () => copyText(shareUrlOutput.value));
 copyRawTokenBtn.addEventListener('click', () => copyText(rawTokenOutput.value));
-generatedTokenSelect.addEventListener('change', () => {
-  void loadGeneratedQrCode();
-});
-copyGeneratedShareUrlBtn.addEventListener('click', () => copyText(generatedShareUrlOutput.value));
-downloadGeneratedQrBtn.addEventListener('click', () => {
-  const selectedToken = getSelectedGeneratedToken();
-  const dataUrl = selectedToken ? generatedQrCodeCache.get(selectedToken.id) : '';
-  if (!selectedToken || !dataUrl) {
-    return;
-  }
-
-  const link = document.createElement('a');
-  link.href = dataUrl;
-  link.download = buildQrDownloadName(selectedToken);
-  link.click();
-});
 refreshTokensBtn.addEventListener('click', () => loadTokens().catch(showLoadError));
 logoutBtn.addEventListener('click', logout);
 
