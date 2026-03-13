@@ -7,10 +7,13 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { genericOAuth } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { loadConfig } from './config.js';
+import {
+  FILE_WRITE_PERMISSION,
+  SHARE_TOKEN_ALPHABET,
+  SHARE_TOKEN_LENGTH,
+  SHARE_TOKEN_PREFIX
+} from './share-token-config.js';
 
-const SHARE_TOKEN_ALPHABET = '23456789abcdefghijkmnpqrstuvwxyz';
-const SHARE_TOKEN_PREFIX = 'dz_';
-const SHARE_TOKEN_LENGTH = 20;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const ONE_DAY_SECONDS = 24 * 60 * 60;
@@ -63,6 +66,9 @@ function createAuthInstance(config) {
         defaultKeyLength: SHARE_TOKEN_LENGTH,
         requireName: true,
         enableMetadata: true,
+        permissions: {
+          defaultPermissions: FILE_WRITE_PERMISSION
+        },
         startingCharactersConfig: {
           shouldStore: true,
           charactersLength: 8

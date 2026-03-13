@@ -11,6 +11,7 @@ const VALID_SHARE_TOKEN = 'dz_validsharetoken0001';
 class StubAuthService {
   constructor(baseUrl) {
     this.baseUrl = baseUrl;
+    this.lastCreateApiKeyBody = null;
     this.session = {
       session: {
         id: 'session-1',
@@ -98,6 +99,7 @@ class StubAuthService {
   }
 
   async createApiKey(_headers, body) {
+    this.lastCreateApiKeyBody = body;
     const key = `dz_createdtoken${String(this.apiKeys.length + 1).padStart(4, '0')}`;
     const apiKey = this.#buildApiKey({
       id: `key-${this.apiKeys.length + 1}`,
@@ -198,13 +200,15 @@ async function createTestApp() {
     pocketIdClientId: 'client-id',
     pocketIdClientSecret: 'client-secret'
   };
+  const authService = new StubAuthService(config.betterAuthBaseUrl);
   const app = await createApp({
     config,
-    authService: new StubAuthService(config.betterAuthBaseUrl)
+    authService
   });
 
   return {
     app,
+    authService,
     config,
     tempDir
   };
@@ -296,7 +300,7 @@ test('accepts valid share links and rejects invalid ones', async (t) => {
 });
 
 test('lists, creates and revokes share tokens for an authenticated admin', async (t) => {
-  const { app, tempDir } = await createTestApp();
+  const { app, authService, tempDir } = await createTestApp();
   t.after(async () => {
     await app.close();
     await rm(tempDir, { recursive: true, force: true });
@@ -332,6 +336,13 @@ test('lists, creates and revokes share tokens for an authenticated admin', async
   });
   assert.equal(createResponse.statusCode, 201);
   assert.match(createResponse.json().rawToken, /^dz_/);
+  assert.deepEqual(authService.lastCreateApiKeyBody, {
+    name: 'Neuer Link',
+    expiresIn: 14 * 24 * 60 * 60,
+    metadata: {
+      createdFor: 'dropzone-share-link'
+    }
+  });
 
   const listAfterCreate = await app.inject({
     method: 'GET',
