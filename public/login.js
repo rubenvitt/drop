@@ -1,5 +1,6 @@
 import { normalizeShareTokenInput } from './ui-utils.js';
 
+const Sentry = window.Sentry;
 const loginButton = document.getElementById('pocketIdLoginBtn');
 const loginMessage = document.getElementById('welcomeMessage');
 const tokenForm = document.getElementById('tokenAccessForm');
@@ -9,6 +10,13 @@ const params = new URLSearchParams(window.location.search);
 const returnTo = params.get('returnTo') || '/admin';
 const error = params.get('error');
 const presetToken = normalizeShareTokenInput(params.get('token') || '');
+
+Sentry?.setTag('surface', 'welcome');
+Sentry?.setContext('login', {
+  returnTo,
+  hasPresetToken: Boolean(presetToken),
+  error: error ?? null
+});
 
 function setMessage(message, tone = 'info') {
   loginMessage.textContent = message;

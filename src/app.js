@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import Fastify from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
+import * as Sentry from '@sentry/node';
 import { loadConfig } from './config.js';
 import { createRateLimiter, requestIp, Semaphore } from './security.js';
 import { FILE_WRITE_PERMISSION } from './share-token-config.js';
@@ -185,6 +186,39 @@ function hoursToSeconds(hours) {
   return hours * 60 * 60;
 }
 
+function captureUnexpectedServerError(error, context = {}) {
+  Sentry.withScope((scope) => {
+    if (Object.keys(context).length > 0) {
+      scope.setContext('dropzone', context);
+    }
+
+    Sentry.captureException(error);
+  });
+}
+
+function bindSessionToSentry(session) {
+  Sentry.setUser({
+    id: session.user.id,
+    email: session.user.email,
+    username: session.user.name
+  });
+  Sentry.setTag('auth_mode', 'session');
+  Sentry.setContext('session', {
+    sessionId: session.session.id,
+    expiresAt: session.session.expiresAt
+  });
+}
+
+function bindShareTokenToSentry(shareKey) {
+  Sentry.setUser(null);
+  Sentry.setTag('auth_mode', 'share_link');
+  Sentry.setContext('shareToken', {
+    id: shareKey.id ?? null,
+    name: shareKey.name ?? null,
+    expiresAt: shareKey.expiresAt ?? null
+  });
+}
+
 function sendApiError(reply, error, fallbackMessage) {
   const status =
     Number.isInteger(error?.statusCode) && error.statusCode >= 400 && error.statusCode < 600
@@ -193,6 +227,15 @@ function sendApiError(reply, error, fallbackMessage) {
         ? error.status
         : 500;
   const message = typeof error?.message === 'string' ? error.message : fallbackMessage;
+
+  if (status >= 500) {
+    captureUnexpectedServerError(error, {
+      area: 'api',
+      fallbackMessage,
+      status
+    });
+  }
+
   return reply.code(status).send({ error: message });
 }
 
@@ -269,6 +312,15 @@ function createUploadHandler({ app, config, semaphore }) {
           const tooLarge = error?.code === 'FST_REQ_FILE_TOO_LARGE';
           errors.push({ file: part.filename, error: tooLarge ? 'too_large' : 'store_failed' });
           app.log.error({ ip, filename: part.filename, size: bytes, result: 'error', err: error }, 'upload');
+
+          if (!tooLarge) {
+            captureUnexpectedServerError(error, {
+              area: 'upload_store',
+              filename: part.filename,
+              size: bytes,
+              ip
+            });
+          }
         }
       }
 
@@ -287,6 +339,11 @@ function createUploadHandler({ app, config, semaphore }) {
       }
 
       req.log.error({ err: error }, 'upload failed');
+      captureUnexpectedServerError(error, {
+        area: 'upload_handler',
+        path: req.url,
+        ip
+      });
       return reply.code(500).send({ error: 'Upload failed' });
     } finally {
       semaphore.release();
@@ -350,6 +407,7 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       }
 
       req.authSession = session;
+      bindSessionToSentry(session);
     };
 
   const requireShareToken = (mode = 'api') =>
@@ -382,6 +440,7 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       }
 
       req.shareKey = result.key;
+      bindShareTokenToSentry(result.key);
     };
 
   const showWelcomePage = async (req, reply) => {

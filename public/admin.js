@@ -1,3 +1,4 @@
+const Sentry = window.Sentry;
 const logoutBtn = document.getElementById('logoutBtn');
 const sessionSummary = document.getElementById('sessionSummary');
 const tokenForm = document.getElementById('tokenForm');
@@ -12,6 +13,8 @@ const copyRawTokenBtn = document.getElementById('copyRawTokenBtn');
 const refreshTokensBtn = document.getElementById('refreshTokensBtn');
 const tokensStatus = document.getElementById('tokensStatus');
 const tokensList = document.getElementById('tokensList');
+
+Sentry?.setTag('surface', 'admin');
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
@@ -40,6 +43,15 @@ async function fetchJson(url, options = {}) {
 
 async function loadSession() {
   const payload = await fetchJson('/api/session');
+  Sentry?.setUser({
+    id: payload.user.id,
+    email: payload.user.email,
+    username: payload.user.name
+  });
+  Sentry?.setContext('session', {
+    id: payload.session.id,
+    expiresAt: payload.session.expiresAt
+  });
   sessionSummary.textContent = `${payload.user.name} (${payload.user.email})`;
 }
 
