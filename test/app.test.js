@@ -327,6 +327,65 @@ test('accepts valid share links and rejects invalid ones', async (t) => {
   assert.equal(invalidUpload.statusCode, 401);
 });
 
+test('exposes upload context for session and share-link mode', async (t) => {
+  const { app, config, tempDir } = await createTestApp();
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const anonymousSessionContext = await app.inject({
+    method: 'GET',
+    url: '/api/upload/context'
+  });
+  assert.equal(anonymousSessionContext.statusCode, 401);
+
+  const sessionContext = await app.inject({
+    method: 'GET',
+    url: '/api/upload/context',
+    headers: {
+      cookie: SESSION_COOKIE
+    }
+  });
+  assert.equal(sessionContext.statusCode, 200);
+  assert.deepEqual(sessionContext.json(), {
+    mode: 'session',
+    maxFileSizeMb: config.maxFileSizeMb,
+    maxFileSizeBytes: config.maxFileSizeMb * 1024 * 1024,
+    allowedMimeTypes: config.allowedMime,
+    categories: [
+      { value: 'bilder', label: 'Bilder' },
+      { value: 'dokumente', label: 'Dokumente' },
+      { value: 'sonstiges', label: 'Sonstiges' }
+    ],
+    hintMaxLength: 500
+  });
+
+  const invalidShareContext = await app.inject({
+    method: 'GET',
+    url: '/api/u/dz_invalidtoken/upload/context'
+  });
+  assert.equal(invalidShareContext.statusCode, 401);
+
+  const shareContext = await app.inject({
+    method: 'GET',
+    url: `/api/u/${VALID_SHARE_TOKEN}/upload/context`
+  });
+  assert.equal(shareContext.statusCode, 200);
+  assert.deepEqual(shareContext.json(), {
+    mode: 'share-link',
+    maxFileSizeMb: config.maxFileSizeMb,
+    maxFileSizeBytes: config.maxFileSizeMb * 1024 * 1024,
+    allowedMimeTypes: config.allowedMime,
+    categories: [
+      { value: 'bilder', label: 'Bilder' },
+      { value: 'dokumente', label: 'Dokumente' },
+      { value: 'sonstiges', label: 'Sonstiges' }
+    ],
+    hintMaxLength: 500
+  });
+});
+
 test('lists, creates and revokes share tokens for an authenticated admin', async (t) => {
   const { app, authService, tempDir } = await createTestApp();
   t.after(async () => {

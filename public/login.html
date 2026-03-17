@@ -8,44 +8,51 @@
     <script src="/vendor/sentry-browser.bundle.min.js"></script>
     <script src="/sentry-init.js"></script>
   </head>
-  <body class="welcome-body">
-    <main class="welcome-shell">
-      <section class="welcome-hero">
-        <div class="welcome-copy">
-          <p class="eyebrow">FüKw Dropzone</p>
-          <h1>Sicherer Dateieingang</h1>
-          <p class="lead">Zugangscode eingeben und Dateien direkt übermitteln.</p>
-        </div>
+  <body class="page page-login">
+    <main class="shell shell-login">
+      <section class="hero hero-login">
+        <div class="hero-frame">
+          <div class="hero-brand login-brand">
+            <h1 class="login-title">FüKw Dropzone</h1>
+            <p class="brand-caption">Sicherer Dateieingang für externe Unterlagen und interne Freigaben.</p>
+          </div>
 
-        <div class="welcome-panels">
-          <section class="card welcome-card">
-            <p class="eyebrow">Dateiübermittlung</p>
-            <h2>Zugangscode eingeben</h2>
-            <p id="welcomeMessage" class="welcome-alert" aria-live="assertive" role="alert" hidden></p>
-            <form id="tokenAccessForm" class="controls">
-              <label class="visually-hidden" for="shareTokenInput">Zugangscode oder Freigabelink</label>
-              <input
-                id="shareTokenInput"
-                name="shareToken"
-                type="text"
-                autocomplete="off"
-                autocapitalize="off"
-                spellcheck="false"
-                aria-describedby="tokenHelp welcomeMessage"
-                placeholder="z. B. dz-k234-5678-abcd oder vollständiger Link"
-                required
-              />
-              <button type="submit">Upload öffnen</button>
-            </form>
-            <p class="mini-note" id="tokenHelp">Alternativ kann ein vollständiger Freigabelink eingefügt werden.</p>
-          </section>
+          <div class="entry-stack login-entry-stack">
+            <section class="panel entry-panel login-panel">
+              <div class="panel-intro">
+                <h2>Zugangscode eingeben</h2>
+              </div>
 
-          <section class="card welcome-card welcome-card-secondary">
-            <p class="eyebrow">Administration</p>
-            <h2>Freigaben verwalten</h2>
-            <p class="mini-note">Anmeldung für Verwaltung und Erstellung zeitlich begrenzter Zugänge.</p>
-            <button id="pocketIdLoginBtn" type="button">Mit I&amp;K ID anmelden</button>
-          </section>
+              <p id="welcomeMessage" class="banner" aria-live="assertive" role="alert" hidden></p>
+
+              <form id="tokenAccessForm" class="stack-form">
+                <label class="field" for="shareTokenInput">
+                  <span class="field-label">Zugangscode oder Freigabelink</span>
+                  <input
+                    id="shareTokenInput"
+                    name="shareToken"
+                    type="text"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    aria-describedby="welcomeMessage"
+                    placeholder="z. B. dz-k234-5678-abcd oder https://..."
+                    required
+                  />
+                </label>
+
+                <button type="submit" class="primary-btn">Upload öffnen</button>
+              </form>
+            </section>
+
+            <section class="panel entry-panel login-panel login-panel-secondary">
+              <div class="panel-intro">
+                <h2>Mit I&amp;K ID anmelden</h2>
+              </div>
+
+              <button id="pocketIdLoginBtn" type="button" class="secondary-btn">Login starten</button>
+            </section>
+          </div>
         </div>
       </section>
     </main>

@@ -17,6 +17,21 @@ const MAX_TOKEN_EXPIRES_IN_HOURS = 72;
 const DEFAULT_ADMIN_RETURN_TO = '/admin';
 const APP_PATH = '/app';
 const MAX_QR_DATA_LENGTH = 2048;
+const UPLOAD_HINT_MAX_LENGTH = 500;
+const UPLOAD_CATEGORIES = Object.freeze([
+  {
+    value: 'bilder',
+    label: 'Bilder'
+  },
+  {
+    value: 'dokumente',
+    label: 'Dokumente'
+  },
+  {
+    value: 'sonstiges',
+    label: 'Sonstiges'
+  }
+]);
 
 function toHeadersObject(nodeHeaders = {}) {
   const headers = new Headers();
@@ -253,6 +268,17 @@ function sendApiError(reply, error, fallbackMessage) {
   return reply.code(status).send({ error: message });
 }
 
+function buildUploadContext(config, mode) {
+  return {
+    mode,
+    maxFileSizeMb: config.maxFileSizeMb,
+    maxFileSizeBytes: config.maxFileSizeMb * 1024 * 1024,
+    allowedMimeTypes: [...config.allowedMime],
+    categories: [...UPLOAD_CATEGORIES],
+    hintMaxLength: UPLOAD_HINT_MAX_LENGTH
+  };
+}
+
 function createUploadHandler({ app, config, semaphore }) {
   return async function handleUpload(req, reply) {
     await semaphore.acquire();
@@ -269,7 +295,7 @@ function createUploadHandler({ app, config, semaphore }) {
       for await (const part of parts) {
         if (part.type === 'field') {
           if (part.fieldname === 'hint') {
-            hint = String(part.value ?? '').slice(0, 500);
+            hint = String(part.value ?? '').slice(0, UPLOAD_HINT_MAX_LENGTH);
           }
           if (part.fieldname === 'category') {
             category = sanitizeCategory(String(part.value ?? ''));
@@ -637,6 +663,14 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       return sendApiError(reply, error, 'Could not delete token');
     }
   });
+
+  app.get('/api/upload/context', { preHandler: requireSession('api') }, async () =>
+    buildUploadContext(config, 'session')
+  );
+
+  app.get('/api/u/:token/upload/context', { preHandler: requireShareToken() }, async () =>
+    buildUploadContext(config, 'share-link')
+  );
 
   app.post('/upload', { preHandler: requireSession('api') }, uploadHandler);
   app.post('/u/:token/upload', { preHandler: requireShareToken() }, uploadHandler);

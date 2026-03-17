@@ -32,16 +32,19 @@ if (presetToken) {
 setMessage('');
 
 if (error === 'oidc_failed') {
-  setMessage('Die Anmeldung über Pocket ID konnte nicht gestartet werden. Bitte versuchen Sie es erneut.', 'error');
+  setMessage('Die Anmeldung mit Ihrer I&K ID konnte nicht gestartet werden. Bitte versuchen Sie es erneut.', 'error');
 }
 
 if (error === 'invalid_token') {
-  setMessage('Der eingegebene Zugangscode ist ungültig oder bereits abgelaufen. Bitte prüfen Sie Ihre Angaben.', 'error');
+  setMessage(
+    'Dieser Zugangscode ist ungueltig oder bereits abgelaufen. Bitte pruefen Sie den Code oder fordern Sie einen neuen Freigabelink an.',
+    'error'
+  );
 }
 
 loginButton.addEventListener('click', () => {
   loginButton.disabled = true;
-  loginButton.textContent = 'Anmeldung wird gestartet…';
+  loginButton.textContent = 'Anmeldung wird vorbereitet...';
   window.location.href = `/login/pocketid?returnTo=${encodeURIComponent(returnTo)}`;
 });
 
@@ -50,16 +53,18 @@ tokenForm.addEventListener('submit', (event) => {
 
   const normalizedToken = normalizeShareTokenInput(shareTokenInput.value);
   if (!normalizedToken) {
-    setMessage('Bitte geben Sie einen Zugangscode oder einen vollständigen Freigabelink ein.', 'error');
+    setMessage('Bitte geben Sie einen Zugangscode oder einen vollstaendigen Freigabelink ein.', 'error');
     shareTokenInput.focus();
     return;
   }
 
   setMessage('');
+
   const submitButton = tokenForm.querySelector('button[type="submit"]');
   if (submitButton) {
     submitButton.disabled = true;
-    submitButton.textContent = 'Öffnet…';
+    submitButton.textContent = 'Upload-Bereich wird geoeffnet...';
   }
+
   window.location.href = `/u/${encodeURIComponent(normalizedToken)}`;
 });

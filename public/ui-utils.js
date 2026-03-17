@@ -2,9 +2,24 @@ const SHARE_TOKEN_PREFIX = 'dz-';
 const SHARE_TOKEN_BODY_LENGTH = 12;
 const SHARE_TOKEN_GROUP_LENGTH = 4;
 
+const MIME_LABELS = {
+  'image/jpeg': 'JPG',
+  'image/png': 'PNG',
+  'image/webp': 'WEBP',
+  'application/pdf': 'PDF',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel',
+  'text/plain': 'Text'
+};
+
 export function resolveUploadPath(pathname) {
   const pathParts = pathname.split('/').filter(Boolean);
   return pathParts[0] === 'u' && pathParts[1] ? `/u/${pathParts[1]}/upload` : '/upload';
+}
+
+export function resolveUploadContextPath(pathname) {
+  const pathParts = pathname.split('/').filter(Boolean);
+  return pathParts[0] === 'u' && pathParts[1] ? `/api/u/${pathParts[1]}/upload/context` : '/api/upload/context';
 }
 
 export function isShareLinkPath(pathname) {
@@ -86,4 +101,45 @@ export function normalizeShareTokenInput(value) {
   }
 
   return compact;
+}
+
+export function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = size;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+export function labelMimeType(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return 'Unbekannt';
+  }
+
+  return MIME_LABELS[value] ?? value.split('/').pop()?.toUpperCase() ?? value;
+}
+
+export function summarizeMimeTypes(values, maxItems = 4) {
+  const list = Array.isArray(values) ? values.filter(Boolean) : [];
+  if (list.length === 0) {
+    return 'Wird serverseitig geprüft';
+  }
+
+  const labels = list.slice(0, maxItems).map(labelMimeType);
+  if (list.length <= maxItems) {
+    return labels.join(', ');
+  }
+
+  return `${labels.join(', ')} und weitere`;
 }

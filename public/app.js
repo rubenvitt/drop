@@ -1,22 +1,66 @@
-import { isShareLinkPath, resolveUploadPath } from './ui-utils.js';
+import {
+  formatFileSize,
+  isShareLinkPath,
+  resolveUploadContextPath,
+  resolveUploadPath,
+  summarizeMimeTypes
+} from './ui-utils.js';
 
 const Sentry = window.Sentry;
+
+const CATEGORY_LABELS = {
+  bilder: 'Bilder',
+  dokumente: 'Dokumente',
+  sonstiges: 'Sonstiges',
+  berichte: 'Berichte'
+};
+
 const fileInput = document.getElementById('files');
+const selectFilesBtn = document.getElementById('selectFilesBtn');
 const uploadBtn = document.getElementById('uploadBtn');
+const clearQueueBtn = document.getElementById('clearQueueBtn');
+const resetUploadBtn = document.getElementById('resetUploadBtn');
 const dropzone = document.getElementById('dropzone');
+const queueSection = document.getElementById('queueSection');
 const queue = document.getElementById('queue');
-const statusEl = document.getElementById('status');
+const queueSummary = document.getElementById('queueSummary');
+const pageStatus = document.getElementById('pageStatus');
 const hintInput = document.getElementById('hint');
 const categoryInput = document.getElementById('category');
+const categoryHint = document.getElementById('categoryHint');
+const progressPanel = document.getElementById('progressPanel');
+const overallProgress = document.getElementById('overallProgress');
+const overallProgressLabel = document.getElementById('overallProgressLabel');
+const uploadRunSummary = document.getElementById('uploadRunSummary');
+const successPanel = document.getElementById('successPanel');
+const successTitle = document.getElementById('successTitle');
+const successSummary = document.getElementById('successSummary');
 const sessionNav = document.getElementById('sessionNav');
 const sessionLabel = document.getElementById('sessionLabel');
 const logoutBtn = document.getElementById('logoutBtn');
+const uploadModeLabel = document.getElementById('uploadModeLabel');
+const uploadHeroTitle = document.getElementById('uploadHeroTitle');
+const uploadHeroLead = document.getElementById('uploadHeroLead');
+const uploadContextTag = document.getElementById('uploadContextTag');
 const uploadContextTitle = document.getElementById('uploadContextTitle');
 const uploadContextHint = document.getElementById('uploadContextHint');
+const allowedMimeSummary = document.getElementById('allowedMimeSummary');
+const maxFileSizeSummary = document.getElementById('maxFileSizeSummary');
+const metaSummary = document.getElementById('metaSummary');
+const dropzoneHelp = document.getElementById('dropzoneHelp');
+const contextAudience = document.getElementById('contextAudience');
+const contextRestrictions = document.getElementById('contextRestrictions');
+const contextAfterUpload = document.getElementById('contextAfterUpload');
 
 const shareMode = isShareLinkPath(window.location.pathname);
 const uploadPath = resolveUploadPath(window.location.pathname);
+const uploadContextPath = resolveUploadContextPath(window.location.pathname);
+
+let uploadContext = createFallbackContext();
+let queueItems = [];
 let isUploading = false;
+let uploadRun = null;
+let actionSequence = 0;
 
 Sentry?.setTag('surface', shareMode ? 'share-upload' : 'upload-app');
 Sentry?.setContext('upload', {
@@ -24,7 +68,18 @@ Sentry?.setContext('upload', {
   path: uploadPath
 });
 
-const setSentrySession = (payload) => {
+function createFallbackContext() {
+  return {
+    mode: shareMode ? 'share-link' : 'session',
+    maxFileSizeMb: null,
+    maxFileSizeBytes: 0,
+    allowedMimeTypes: [],
+    categories: ['bilder', 'dokumente', 'sonstiges'],
+    hintMaxLength: 500
+  };
+}
+
+function setSentrySession(payload) {
   Sentry?.setUser({
     id: payload.user.id,
     email: payload.user.email,
@@ -34,162 +89,608 @@ const setSentrySession = (payload) => {
     id: payload.session.id,
     expiresAt: payload.session.expiresAt
   });
-};
+}
 
-const parseJson = (text) => {
-  if (!text) return null;
+function parseJson(text) {
+  if (!text) {
+    return null;
+  }
+
   try {
     return JSON.parse(text);
   } catch {
     return null;
   }
-};
+}
 
-const setStatusMessage = (message, tone = '') => {
-  statusEl.textContent = message;
-  if (tone) {
-    statusEl.dataset.tone = tone;
+function setBanner(element, message, tone = 'info') {
+  if (!element) {
     return;
   }
 
-  delete statusEl.dataset.tone;
-};
+  element.textContent = message;
+  element.dataset.tone = tone;
+  element.hidden = !message;
+}
 
-const errorMessageFor = (status, payload) => {
+function clearBanner(element) {
+  if (!element) {
+    return;
+  }
+
+  element.textContent = '';
+  element.hidden = true;
+  delete element.dataset.tone;
+}
+
+function normalizeCategories(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return ['bilder', 'dokumente', 'sonstiges'];
+  }
+
+  return values
+    .map((value) => {
+      if (typeof value === 'string') {
+        return { value, label: CATEGORY_LABELS[value] ?? value };
+      }
+
+      if (value && typeof value === 'object' && typeof value.value === 'string') {
+        return {
+          value: value.value,
+          label: typeof value.label === 'string' && value.label.trim() ? value.label.trim() : CATEGORY_LABELS[value.value] ?? value.value
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function configureCategoryOptions(categories) {
+  const entries = normalizeCategories(categories);
+  const fragment = document.createDocumentFragment();
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Keine Kategorie auswaehlen';
+  fragment.appendChild(placeholder);
+
+  for (const entry of entries) {
+    const option = document.createElement('option');
+    option.value = entry.value;
+    option.textContent = entry.label;
+    fragment.appendChild(option);
+  }
+
+  categoryInput.replaceChildren(fragment);
+  categoryHint.textContent =
+    entries.length > 0
+      ? 'Optional. Hilft bei der Zuordnung im Zielordner.'
+      : 'Derzeit stehen keine festen Kategorien zur Auswahl bereit.';
+}
+
+function applyModeCopy() {
+  if (shareMode) {
+    uploadModeLabel.textContent = 'Externer Upload-Zugang';
+    uploadHeroTitle.textContent = 'Dateien fuer diesen Freigabelink senden';
+    uploadHeroLead.textContent =
+      'Dieser Zugang ist auf die sichere Dateiuebermittlung beschraenkt. Sie koennen die Auswahl vor dem Senden in Ruhe pruefen.';
+    uploadContextTag.textContent = 'Freigabelink';
+    uploadContextTitle.textContent = 'Externe Uebermittlung vorbereiten';
+    uploadContextHint.textContent =
+      'Sie sehen hier nur die Schritte fuer den Upload. Verwaltungsfunktionen stehen in diesem Zugang nicht zur Verfuegung.';
+    contextAudience.textContent = 'Sie senden ueber einen zeitlich begrenzten Upload-Zugang fuer externe Beteiligte.';
+    contextRestrictions.textContent =
+      'Dateityp und Dateigroesse werden vorab geprueft und serverseitig erneut bestaetigt.';
+    contextAfterUpload.textContent =
+      'Nach dem Senden koennen Sie weitere Dateien uebermitteln, solange der Freigabelink gueltig bleibt.';
+    return;
+  }
+
+  uploadModeLabel.textContent = 'Interner Upload';
+  uploadHeroTitle.textContent = 'Dateien direkt in Ihrer Sitzung uebermitteln';
+  uploadHeroLead.textContent =
+    'Sie sind angemeldet und koennen Dateien senden, den Upload pruefen und bei Bedarf direkt zur Freigabe-Verwaltung wechseln.';
+  uploadContextTag.textContent = 'Sitzung';
+  uploadContextTitle.textContent = 'Interne Uebermittlung vorbereiten';
+  uploadContextHint.textContent =
+    'Waehlen Sie alle benoetigten Dateien aus, pruefen Sie die Angaben und starten Sie die Uebermittlung bewusst.';
+  contextAudience.textContent = 'Sie arbeiten in einer angemeldeten Sitzung mit Zugriff auf die Verwaltungsoberflaeche.';
+  contextRestrictions.textContent =
+    'Der Upload nutzt denselben geschuetzten Speicherpfad wie externe Freigaben, aber mit internem Sitzungszugang.';
+  contextAfterUpload.textContent =
+    'Nach dem Senden koennen Sie weitere Dateien uebermitteln oder direkt neue Upload-Zugaenge anlegen.';
+}
+
+function applyUploadContext(payload) {
+  uploadContext = {
+    ...createFallbackContext(),
+    ...payload,
+    mode: payload?.mode ?? (shareMode ? 'share-link' : 'session')
+  };
+
+  const allowedTypes = Array.isArray(uploadContext.allowedMimeTypes) ? uploadContext.allowedMimeTypes : [];
+
+  allowedMimeSummary.textContent = summarizeMimeTypes(allowedTypes);
+  maxFileSizeSummary.textContent = uploadContext.maxFileSizeBytes
+    ? formatFileSize(uploadContext.maxFileSizeBytes)
+    : uploadContext.maxFileSizeMb
+      ? `${uploadContext.maxFileSizeMb} MB`
+      : 'Wird serverseitig geprueft';
+  metaSummary.textContent = normalizeCategories(uploadContext.categories).length
+    ? 'Hinweis und Kategorie optional'
+    : 'Nur Hinweis optional';
+  dropzoneHelp.textContent = uploadContext.maxFileSizeBytes
+    ? `Erlaubte Formate: ${summarizeMimeTypes(allowedTypes)}. Maximale Dateigroesse: ${formatFileSize(uploadContext.maxFileSizeBytes)}.`
+    : `Erlaubte Formate: ${summarizeMimeTypes(allowedTypes)}.`;
+
+  if (uploadContext.hintMaxLength && Number.isFinite(uploadContext.hintMaxLength)) {
+    hintInput.maxLength = uploadContext.hintMaxLength;
+  }
+
+  fileInput.accept = allowedTypes.join(',');
+  configureCategoryOptions(uploadContext.categories);
+  revalidateQueue();
+}
+
+function buildQueueItem(file) {
+  const validationError = validateFile(file);
+
+  return {
+    id: `file-${actionSequence++}`,
+    file,
+    status: validationError ? 'invalid' : 'ready',
+    progress: 0,
+    error: validationError,
+    responseMessage: '',
+    uploadedName: ''
+  };
+}
+
+function validateFile(file) {
+  if (uploadContext.maxFileSizeBytes && file.size > uploadContext.maxFileSizeBytes) {
+    return `Die Datei ist groesser als ${formatFileSize(uploadContext.maxFileSizeBytes)}.`;
+  }
+
+  const allowedTypes = Array.isArray(uploadContext.allowedMimeTypes) ? uploadContext.allowedMimeTypes : [];
+  if (allowedTypes.length > 0 && file.type && !allowedTypes.includes(file.type)) {
+    return `Der Dateityp ${file.type} ist fuer diesen Upload-Zugang nicht freigegeben.`;
+  }
+
+  return '';
+}
+
+function revalidateQueue() {
+  queueItems = queueItems.map((item) => {
+    if (item.status === 'uploaded') {
+      return item;
+    }
+
+    const validationError = validateFile(item.file);
+    if (validationError) {
+      return {
+        ...item,
+        status: 'invalid',
+        error: validationError,
+        progress: 0
+      };
+    }
+
+    return {
+      ...item,
+      status: item.status === 'invalid' ? 'ready' : item.status,
+      error: item.status === 'invalid' ? '' : item.error
+    };
+  });
+
+  renderQueue();
+}
+
+function formatQueueSummary() {
+  if (queueItems.length === 0) {
+    return 'Noch keine Dateien ausgewaehlt.';
+  }
+
+  const totalBytes = queueItems.reduce((sum, item) => sum + item.file.size, 0);
+  const readyCount = queueItems.filter((item) => item.status === 'ready' || item.status === 'failed').length;
+  const invalidCount = queueItems.filter((item) => item.status === 'invalid').length;
+
+  if (invalidCount > 0) {
+    return `${queueItems.length} Datei(en), ${formatFileSize(totalBytes)} insgesamt. ${invalidCount} Datei(en) muessen vor dem Senden korrigiert oder entfernt werden.`;
+  }
+
+  return `${queueItems.length} Datei(en), ${formatFileSize(totalBytes)} insgesamt. ${readyCount} Datei(en) bereit zum Senden.`;
+}
+
+function createStatusChip(text, tone) {
+  const chip = document.createElement('span');
+  chip.className = 'status-chip';
+  chip.textContent = text;
+
+  if (tone) {
+    chip.dataset.tone = tone;
+  }
+
+  return chip;
+}
+
+function renderQueue() {
+  queueSection.hidden = queueItems.length === 0;
+  queueSummary.textContent = formatQueueSummary();
+  queue.replaceChildren();
+
+  for (const item of queueItems) {
+    const li = document.createElement('li');
+    li.className = 'file-item';
+    li.dataset.fileId = item.id;
+
+    const head = document.createElement('div');
+    head.className = 'file-item-head';
+
+    const title = document.createElement('div');
+    title.className = 'file-title';
+
+    const strong = document.createElement('strong');
+    strong.textContent = item.file.name;
+
+    const meta = document.createElement('span');
+    meta.className = 'file-meta';
+    meta.textContent = `${formatFileSize(item.file.size)}${item.file.type ? ` | ${item.file.type}` : ''}`;
+
+    title.append(strong, meta);
+
+    const statusText =
+      item.status === 'uploaded'
+        ? 'Gesendet'
+        : item.status === 'uploading'
+          ? `${item.progress}%`
+          : item.status === 'failed'
+            ? 'Fehlgeschlagen'
+            : item.status === 'invalid'
+              ? 'Pruefung erforderlich'
+              : 'Bereit';
+    const statusTone =
+      item.status === 'uploaded'
+        ? 'success'
+        : item.status === 'failed' || item.status === 'invalid'
+          ? 'error'
+          : item.status === 'uploading'
+            ? 'warning'
+            : '';
+
+    head.append(title, createStatusChip(statusText, statusTone));
+    li.appendChild(head);
+
+    const progress = document.createElement('progress');
+    progress.className = 'file-progress';
+    progress.max = 100;
+    progress.value = item.status === 'uploaded' ? 100 : item.progress;
+    li.appendChild(progress);
+
+    if (item.error || item.responseMessage) {
+      const message = document.createElement('p');
+      message.className = 'support-text';
+      message.textContent = item.error || item.responseMessage;
+      li.appendChild(message);
+    }
+
+    const foot = document.createElement('div');
+    foot.className = 'file-item-foot';
+
+    const detail = document.createElement('span');
+    detail.className = 'file-meta';
+    if (item.status === 'uploaded') {
+      detail.textContent = item.uploadedName
+        ? `Gespeichert als ${item.uploadedName}.`
+        : 'Erfolgreich uebermittelt.';
+    } else if (item.status === 'uploading') {
+      detail.textContent = 'Datei wird derzeit uebertragen.';
+    } else if (item.status === 'failed') {
+      detail.textContent = 'Sie koennen die Datei erneut senden oder aus der Auswahl entfernen.';
+    } else if (item.status === 'invalid') {
+      detail.textContent = 'Diese Datei wird erst gesendet, wenn die Auswahl angepasst wurde.';
+    } else {
+      detail.textContent = 'Wird beim naechsten Upload-Lauf uebermittelt.';
+    }
+
+    foot.appendChild(detail);
+
+    if (!isUploading) {
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ghost-btn';
+      removeButton.dataset.action = 'remove-file';
+      removeButton.dataset.fileId = item.id;
+      removeButton.textContent = 'Entfernen';
+      foot.appendChild(removeButton);
+    }
+
+    li.appendChild(foot);
+    queue.appendChild(li);
+  }
+
+  const pendingItems = queueItems.filter((item) => item.status === 'ready' || item.status === 'failed');
+  const hasBlockingItems = queueItems.some((item) => item.status === 'invalid');
+
+  uploadBtn.disabled = isUploading || pendingItems.length === 0 || hasBlockingItems;
+  uploadBtn.textContent =
+    pendingItems.some((item) => item.status === 'failed') && pendingItems.every((item) => item.status === 'failed')
+      ? 'Erneut senden'
+      : 'Jetzt senden';
+  selectFilesBtn.disabled = isUploading;
+  clearQueueBtn.disabled = isUploading || queueItems.length === 0;
+  resetUploadBtn.disabled = isUploading;
+}
+
+function openFilePicker() {
+  fileInput.click();
+}
+
+function addFiles(fileList) {
+  const files = [...fileList];
+  if (files.length === 0) {
+    return;
+  }
+
+  clearBanner(pageStatus);
+  successPanel.hidden = true;
+
+  const newItems = files.map(buildQueueItem);
+  queueItems = [...queueItems, ...newItems];
+  renderQueue();
+
+  const invalidCount = newItems.filter((item) => item.status === 'invalid').length;
+  if (invalidCount > 0) {
+    setBanner(
+      pageStatus,
+      `${invalidCount} Datei(en) sind noch nicht sendbar. Bitte pruefen Sie Dateityp oder Dateigroesse.`,
+      'warning'
+    );
+  }
+}
+
+function removeFile(fileId) {
+  queueItems = queueItems.filter((item) => item.id !== fileId);
+  renderQueue();
+
+  if (queueItems.length === 0) {
+    clearBanner(pageStatus);
+    successPanel.hidden = true;
+  }
+}
+
+function resetComposer() {
+  queueItems = [];
+  uploadRun = null;
+  isUploading = false;
+  hintInput.value = '';
+  categoryInput.value = '';
+  fileInput.value = '';
+  clearBanner(pageStatus);
+  successPanel.hidden = true;
+  progressPanel.hidden = true;
+  overallProgress.value = 0;
+  overallProgressLabel.textContent = '0%';
+  renderQueue();
+}
+
+function getUploadErrorMessage(status, payload) {
   const rawError = String(payload?.error ?? '');
 
   if (status === 401 || status === 403) {
-    return 'Upload nicht möglich. Bitte prüfen Sie Anmeldung oder Freigabelink.';
+    return 'Der Upload-Zugang ist nicht mehr gueltig. Bitte pruefen Sie Anmeldung oder Freigabelink.';
   }
 
   if (status === 413) {
-    return 'Die Datei überschreitet die zulässige Größe. Bitte wählen Sie eine kleinere Datei.';
+    return 'Die Datei ist groesser als fuer diesen Upload-Zugang erlaubt.';
   }
 
   if (status === 415) {
-    return 'Dieser Dateityp ist nicht freigegeben. Bitte wählen Sie einen zulässigen Dateityp.';
+    return 'Der Dateityp ist fuer diesen Upload-Zugang nicht freigegeben.';
+  }
+
+  if (status === 429) {
+    return 'Zu viele Upload-Versuche in kurzer Zeit. Bitte warten Sie einen Moment und versuchen Sie es erneut.';
   }
 
   if (rawError.includes('EACCES') || rawError.includes('/uploads')) {
-    return 'Der Server kann Dateien derzeit nicht speichern. Bitte prüfen Sie die Berechtigungen.';
+    return 'Der Server kann die Datei derzeit nicht speichern. Bitte informieren Sie das Team.';
   }
 
   if (status >= 500) {
-    return 'Die Übermittlung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
+    return 'Die Uebermittlung konnte serverseitig nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
   }
 
-  return `Upload fehlgeschlagen (${status}).`;
-};
+  return `Die Uebermittlung wurde mit Status ${status} abgelehnt.`;
+}
 
-const renderItem = (file) => {
-  const li = document.createElement('li');
+function updateOverallProgress(currentFileId = '', currentLoaded = 0) {
+  if (!uploadRun || uploadRun.totalBytes <= 0) {
+    overallProgress.value = 0;
+    overallProgressLabel.textContent = '0%';
+    return;
+  }
 
-  const title = document.createElement('strong');
-  title.textContent = file.name;
+  let completedBytes = 0;
 
-  const lineBreak = document.createElement('br');
+  for (const itemId of uploadRun.ids) {
+    const item = queueItems.find((candidate) => candidate.id === itemId);
+    if (!item) {
+      continue;
+    }
 
-  const progress = document.createElement('progress');
-  progress.className = 'progress';
-  progress.max = 100;
-  progress.value = 0;
+    if (item.id === currentFileId) {
+      completedBytes += Math.min(currentLoaded, item.file.size);
+      continue;
+    }
 
-  const meta = document.createElement('span');
-  meta.className = 'meta';
-  meta.textContent = 'Bereit';
+    if (item.status === 'uploaded') {
+      completedBytes += item.file.size;
+    }
+  }
 
-  li.append(title, lineBreak, progress, meta);
-  queue.appendChild(li);
-  return li;
-};
+  const percent = Math.round((completedBytes / uploadRun.totalBytes) * 100);
+  overallProgress.value = percent;
+  overallProgressLabel.textContent = `${percent}%`;
+}
 
-const uploadFile = (file, li) =>
-  new Promise((resolve) => {
+function uploadFile(item) {
+  item.status = 'uploading';
+  item.progress = 0;
+  item.error = '';
+  item.responseMessage = '';
+  renderQueue();
+
+  return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
-    const progressEl = li.querySelector('progress');
-    const metaEl = li.querySelector('.meta');
     const form = new FormData();
 
     form.append('hint', hintInput.value.trim());
     form.append('category', categoryInput.value);
-    form.append('files', file, file.name);
+    form.append('files', item.file, item.file.name);
 
     xhr.upload.addEventListener('progress', (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        progressEl.value = percent;
-        metaEl.textContent = `${percent}%`;
+      if (!event.lengthComputable) {
+        return;
       }
+
+      const percent = Math.round((event.loaded / event.total) * 100);
+      if (percent === item.progress) {
+        return;
+      }
+
+      item.progress = percent;
+      updateOverallProgress(item.id, event.loaded);
+      renderQueue();
     });
 
     xhr.addEventListener('load', () => {
-      const ok = xhr.status >= 200 && xhr.status < 300;
       const payload = parseJson(xhr.responseText);
-      metaEl.textContent = ok ? 'Abgeschlossen' : errorMessageFor(xhr.status, payload);
-      resolve(ok);
+      const success = xhr.status >= 200 && xhr.status < 300 && Array.isArray(payload?.uploaded) && payload.uploaded.length > 0;
+
+      if (success) {
+        item.status = 'uploaded';
+        item.progress = 100;
+        item.uploadedName = payload.uploaded[0]?.filename ?? item.file.name;
+        item.responseMessage = 'Datei erfolgreich uebermittelt.';
+        updateOverallProgress(item.id, item.file.size);
+        renderQueue();
+        resolve(true);
+        return;
+      }
+
+      item.status = 'failed';
+      item.progress = 0;
+      item.error = getUploadErrorMessage(xhr.status, payload);
+      renderQueue();
+      resolve(false);
     });
 
     xhr.addEventListener('error', () => {
-      metaEl.textContent = 'Netzwerkfehler bei der Übertragung';
+      item.status = 'failed';
+      item.progress = 0;
+      item.error = 'Netzwerkfehler waehrend der Uebertragung. Bitte versuchen Sie es erneut.';
+      renderQueue();
       resolve(false);
     });
 
     xhr.open('POST', uploadPath);
     xhr.send(form);
   });
+}
 
-const handleFiles = async (fileList) => {
+async function startUpload() {
   if (isUploading) {
-    setStatusMessage('Es läuft bereits eine Übertragung. Bitte warten Sie kurz.');
     return;
   }
 
-  const files = [...fileList];
-  if (files.length === 0) return;
+  const sendableItems = queueItems.filter((item) => item.status === 'ready' || item.status === 'failed');
+  if (sendableItems.length === 0) {
+    setBanner(pageStatus, 'Bitte waehlen Sie mindestens eine sendbare Datei aus.', 'warning');
+    return;
+  }
+
+  if (queueItems.some((item) => item.status === 'invalid')) {
+    setBanner(pageStatus, 'Einige Dateien muessen vor dem Senden korrigiert oder entfernt werden.', 'warning');
+    return;
+  }
 
   isUploading = true;
-  setStatusMessage(`Übertragung gestartet: ${files.length} Datei(en).`);
-  queue.replaceChildren();
-  uploadBtn.disabled = true;
-  fileInput.disabled = true;
-  dropzone.setAttribute('aria-busy', 'true');
+  successPanel.hidden = true;
+  uploadRun = {
+    ids: sendableItems.map((item) => item.id),
+    totalBytes: sendableItems.reduce((sum, item) => sum + item.file.size, 0)
+  };
 
-  try {
-    let successCount = 0;
-    for (const file of files) {
-      const li = renderItem(file);
-      // Sequential uploads keep browser/network pressure aligned with backend limits.
-      // eslint-disable-next-line no-await-in-loop
-      const ok = await uploadFile(file, li);
-      if (ok) successCount += 1;
+  progressPanel.hidden = false;
+  overallProgress.value = 0;
+  overallProgressLabel.textContent = '0%';
+  uploadRunSummary.textContent = `${sendableItems.length} Datei(en) werden nacheinander uebertragen.`;
+  setBanner(pageStatus, 'Die Uebermittlung wurde gestartet.', 'info');
+  renderQueue();
+
+  let successCount = 0;
+
+  for (const item of sendableItems) {
+    // Sequential uploads keep browser and backend limits aligned.
+    // eslint-disable-next-line no-await-in-loop
+    const success = await uploadFile(item);
+    if (success) {
+      successCount += 1;
+    }
+  }
+
+  const failedCount = sendableItems.length - successCount;
+
+  isUploading = false;
+  progressPanel.hidden = true;
+  renderQueue();
+
+  if (successCount === sendableItems.length) {
+    setBanner(pageStatus, `${successCount} Datei(en) wurden erfolgreich uebermittelt.`, 'success');
+    successTitle.textContent = 'Uebermittlung abgeschlossen';
+    successSummary.textContent =
+      'Alle ausgewaehlten Dateien wurden erfolgreich gesendet. Fuer weitere Unterlagen koennen Sie direkt eine neue Auswahl starten.';
+  } else if (successCount > 0) {
+    setBanner(
+      pageStatus,
+      `${successCount} Datei(en) wurden uebermittelt, ${failedCount} Datei(en) muessen erneut gesendet werden.`,
+      'warning'
+    );
+    successTitle.textContent = 'Uebermittlung teilweise abgeschlossen';
+    successSummary.textContent =
+      'Ein Teil der Auswahl wurde erfolgreich gesendet. Fehlgeschlagene Dateien bleiben in der Liste und koennen erneut uebermittelt werden.';
+  } else {
+    setBanner(pageStatus, 'Keine Datei konnte uebermittelt werden. Bitte pruefen Sie die Meldungen in der Liste.', 'error');
+    successTitle.textContent = 'Uebermittlung fehlgeschlagen';
+    successSummary.textContent =
+      'Bitte pruefen Sie die einzelnen Dateimeldungen. Sie koennen die Auswahl anpassen oder den Upload erneut starten.';
+  }
+
+  successPanel.hidden = false;
+}
+
+async function loadUploadContext() {
+  const response = await fetch(uploadContextPath, {
+    credentials: 'same-origin'
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw Object.assign(new Error('unauthorized'), { status: response.status });
     }
 
-    setStatusMessage(
-      `${successCount} von ${files.length} Datei(en) erfolgreich übertragen.`,
-      successCount === files.length ? 'success' : 'error'
+    setBanner(
+      pageStatus,
+      'Upload-Informationen konnten nicht geladen werden. Die serverseitige Pruefung bleibt aktiv, Hinweise sind derzeit eingeschraenkt.',
+      'warning'
     );
-  } finally {
-    isUploading = false;
-    uploadBtn.disabled = false;
-    fileInput.disabled = false;
-    dropzone.removeAttribute('aria-busy');
-  }
-};
-
-function renderUploadContext() {
-  if (!uploadContextTitle || !uploadContextHint) {
+    applyUploadContext(createFallbackContext());
     return;
   }
 
-  if (shareMode) {
-    uploadContextTitle.textContent = 'Upload per Freigabelink';
-    uploadContextHint.textContent =
-      'Dieser Zugang ist auf die Dateiübermittlung beschränkt und besitzt keine Verwaltungsrechte.';
-    return;
-  }
-
-  uploadContextTitle.textContent = 'Upload in Ihrer Sitzung';
-  uploadContextHint.textContent = 'Sie sind angemeldet und können Freigaben in der Verwaltung steuern.';
+  const payload = await response.json();
+  applyUploadContext(payload);
 }
 
 async function loadSessionNavigation() {
@@ -203,8 +704,7 @@ async function loadSessionNavigation() {
   });
 
   if (!response.ok) {
-    window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
-    return;
+    throw Object.assign(new Error('unauthorized'), { status: response.status });
   }
 
   const payload = await response.json();
@@ -227,32 +727,73 @@ async function logout() {
   window.location.href = '/';
 }
 
-uploadBtn.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (event) => handleFiles(event.target.files));
+applyModeCopy();
+applyUploadContext(createFallbackContext());
+renderQueue();
+
+selectFilesBtn.addEventListener('click', openFilePicker);
+uploadBtn.addEventListener('click', startUpload);
+clearQueueBtn.addEventListener('click', () => {
+  queueItems = [];
+  successPanel.hidden = true;
+  clearBanner(pageStatus);
+  renderQueue();
+});
+resetUploadBtn.addEventListener('click', resetComposer);
+fileInput.addEventListener('change', (event) => {
+  addFiles(event.target.files);
+  fileInput.value = '';
+});
+queue.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action="remove-file"][data-file-id]');
+  if (!button) {
+    return;
+  }
+
+  removeFile(button.dataset.fileId);
+});
+
 logoutBtn?.addEventListener('click', logout);
 
-['dragenter', 'dragover'].forEach((evt) => {
-  dropzone.addEventListener(evt, (event) => {
+['dragenter', 'dragover'].forEach((eventName) => {
+  dropzone.addEventListener(eventName, (event) => {
     event.preventDefault();
+    if (isUploading) {
+      return;
+    }
+
     dropzone.classList.add('dragover');
   });
 });
-['dragleave', 'drop'].forEach((evt) => {
-  dropzone.addEventListener(evt, (event) => {
+
+['dragleave', 'drop'].forEach((eventName) => {
+  dropzone.addEventListener(eventName, (event) => {
     event.preventDefault();
     dropzone.classList.remove('dragover');
   });
 });
 
 dropzone.addEventListener('drop', (event) => {
-  const files = event.dataTransfer?.files;
-  if (files) handleFiles(files);
-});
+  if (isUploading) {
+    return;
+  }
 
-loadSessionNavigation().catch(() => {
-  if (!shareMode) {
-    window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
+  const files = event.dataTransfer?.files;
+  if (files) {
+    addFiles(files);
   }
 });
 
-renderUploadContext();
+Promise.all([loadUploadContext(), loadSessionNavigation()]).catch((error) => {
+  if (!shareMode && (error.status === 401 || error.message === 'unauthorized')) {
+    window.location.href = `/?returnTo=${encodeURIComponent(window.location.pathname)}`;
+    return;
+  }
+
+  if (shareMode && (error.status === 401 || error.status === 403 || error.message === 'unauthorized')) {
+    window.location.href = '/?error=invalid_token';
+    return;
+  }
+
+  setBanner(pageStatus, 'Die Seite konnte nicht vollstaendig initialisiert werden. Bitte laden Sie sie erneut.', 'error');
+});

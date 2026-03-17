@@ -3,81 +3,136 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dropzone Admin</title>
+    <title>FüKw Dropzone Admin</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="/vendor/sentry-browser.bundle.min.js"></script>
     <script src="/sentry-init.js"></script>
   </head>
-  <body>
-    <main class="container admin-shell">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Administration</p>
-          <h1>Freigaben verwalten</h1>
-          <p class="lead">
-            Erstellen Sie zeitlich begrenzte Zugänge für externe Uploads, behalten Sie aktive Freigaben im
-            Blick und widerrufen Sie diese bei Bedarf.
+  <body class="page page-admin">
+    <main class="shell shell-admin">
+      <header class="admin-header">
+        <div class="header-copy">
+          <p class="kicker">Freigaben verwalten</p>
+          <h1>Upload-Zugänge erstellen, teilen und gezielt wieder entziehen.</h1>
+          <p class="hero-text">
+            Vergeben Sie zeitlich begrenzte Upload-Zugänge, kopieren Sie Link oder Zugangscode und behalten Sie aktive
+            Freigaben mit Ablaufzeit im Blick.
           </p>
         </div>
-        <nav class="session-nav">
-          <a href="/app">Zur Upload-Seite</a>
-          <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
-        </nav>
-      </header>
 
-      <section class="card">
-        <h2>Angemeldete Sitzung</h2>
-        <p id="sessionSummary" class="status" role="status" aria-live="polite">Sitzung wird geladen…</p>
-        <p id="storageWarning" class="status" data-tone="error" hidden></p>
-      </section>
-
-      <section class="card">
-        <h2>Neue Freigabe erstellen</h2>
-        <form id="tokenForm" class="controls">
-          <input
-            id="tokenName"
-            name="name"
-            type="text"
-            maxlength="64"
-            placeholder="Bezeichnung der Freigabe"
-            required
-          />
-          <select id="tokenExpiry" name="expiresInHours">
-            <option value="1">1 Stunde</option>
-            <option value="2">2 Stunden</option>
-            <option value="6">6 Stunden</option>
-            <option value="12" selected>12 Stunden</option>
-            <option value="24">24 Stunden</option>
-            <option value="48">2 Tage</option>
-            <option value="72">3 Tage</option>
-          </select>
-          <button type="submit">Freigabe erstellen</button>
-        </form>
-
-        <div id="newTokenResult" class="result-card" hidden>
-          <h3>Freigabe erstellt</h3>
-          <p id="newTokenName" class="result-name"></p>
-          <label class="result-field">
-            <span>Freigabelink</span>
-            <input id="shareUrlOutput" type="text" readonly />
-          </label>
-          <label class="result-field">
-            <span>Zugangscode</span>
-            <input id="rawTokenOutput" type="text" readonly />
-          </label>
+        <div class="header-tools">
+          <p id="sessionSummary" class="session-card" role="status" aria-live="polite">Sitzung wird geladen...</p>
           <div class="action-row">
-            <button id="copyShareUrlBtn" type="button" class="ghost-btn">Link kopieren</button>
-            <button id="copyRawTokenBtn" type="button" class="ghost-btn">Code kopieren</button>
+            <a href="/app" class="secondary-link">Zur Upload-Oberfläche</a>
+            <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
           </div>
         </div>
+      </header>
+
+      <p id="pageStatus" class="banner" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+
+      <section class="admin-grid">
+        <section class="panel panel-strong composer-card">
+          <div class="panel-intro">
+            <p class="section-tag">Neuer Upload-Zugang</p>
+            <h2>Freigabe vorbereiten</h2>
+            <p>Beschreiben Sie den Zweck des Zugangs und legen Sie fest, wie lange der Upload-Link nutzbar bleiben soll.</p>
+          </div>
+
+          <p id="composerStatus" class="banner" role="status" aria-live="polite" hidden></p>
+
+          <form id="tokenForm" class="stack-form">
+            <label class="field">
+              <span class="field-label">Wofür ist dieser Zugang?</span>
+              <input
+                id="tokenName"
+                name="name"
+                type="text"
+                maxlength="64"
+                placeholder="z. B. Unterlagen Lagebesprechung"
+                required
+              />
+              <span class="field-hint">Die Bezeichnung hilft intern bei der Einordnung der Freigabe.</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Wie lange soll der Zugang aktiv bleiben?</span>
+              <select id="tokenExpiry" name="expiresInHours">
+                <option value="1">1 Stunde</option>
+                <option value="2">2 Stunden</option>
+                <option value="6">6 Stunden</option>
+                <option value="12" selected>12 Stunden</option>
+                <option value="24">24 Stunden</option>
+                <option value="48">2 Tage</option>
+                <option value="72">3 Tage</option>
+              </select>
+            </label>
+
+            <button type="submit" class="primary-btn">Upload-Zugang erstellen</button>
+          </form>
+        </section>
+
+        <section id="shareKit" class="panel share-kit" hidden>
+          <div class="panel-intro">
+            <p class="section-tag">Direkt teilen</p>
+            <h2>Freigabe bereit zum Versenden</h2>
+            <p id="newTokenName" class="result-name"></p>
+          </div>
+
+          <p id="shareKitStatus" class="banner" role="status" aria-live="polite" hidden></p>
+
+          <label class="field">
+            <span class="field-label">Freigabelink</span>
+            <input id="shareUrlOutput" type="text" readonly />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Zugangscode</span>
+            <input id="rawTokenOutput" type="text" readonly />
+          </label>
+
+          <div class="action-row">
+            <button id="copyShareUrlBtn" type="button" class="secondary-btn">Link kopieren</button>
+            <button id="copyRawTokenBtn" type="button" class="ghost-btn">Code kopieren</button>
+          </div>
+
+          <div class="qr-block">
+            <div class="qr-head">
+              <h3>QR-Code</h3>
+              <button id="downloadShareKitQrBtn" type="button" class="ghost-btn" disabled>QR herunterladen</button>
+            </div>
+            <p id="shareKitQrStatus" class="support-text">QR-Code wird nach der Erstellung automatisch vorbereitet.</p>
+            <div id="shareKitQrPreview" class="qr-preview qr-preview-large"></div>
+          </div>
+        </section>
       </section>
 
-      <section class="card">
-        <div class="section-head">
-          <h2>Aktive Freigaben</h2>
-          <button id="refreshTokensBtn" type="button" class="ghost-btn">Aktualisieren</button>
+      <section class="panel panel-muted info-band">
+        <div class="panel-intro">
+          <p class="section-tag">Hinweis zum Teilen</p>
+          <h2>Link- und QR-Vorschau sind browsergebunden</h2>
         </div>
-        <p id="tokensStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+        <p id="storageWarning" class="support-text">
+          Für ältere Freigaben stehen Link und QR-Code nur dann direkt bereit, wenn der Zugang in diesem Browser erstellt
+          wurde. Andernfalls bleibt der Eintrag sichtbar, aber nicht vollständig teilbar.
+        </p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="section-head">
+          <div>
+            <p class="section-tag">Arbeitsliste</p>
+            <h2>Aktive Upload-Zugänge</h2>
+            <p class="support-text">Alle derzeit gültigen Freigaben mit Ablaufzeit, Teilbarkeit und direkten Aktionen.</p>
+          </div>
+
+          <div class="list-tools">
+            <p id="tokensStatus" class="support-text" role="status" aria-live="polite" aria-atomic="true"></p>
+            <button id="refreshTokensBtn" type="button" class="ghost-btn">Aktualisieren</button>
+          </div>
+        </div>
+
+        <p id="actionStatus" class="banner" role="status" aria-live="polite" hidden></p>
         <p id="adminLiveStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
         <ul id="tokensList" class="token-list"></ul>
       </section>

@@ -8,47 +8,150 @@
     <script src="/vendor/sentry-browser.bundle.min.js"></script>
     <script src="/sentry-init.js"></script>
   </head>
-  <body>
-    <main class="container">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Dateiübermittlung</p>
-          <h1>FüKw Dropzone</h1>
-          <p class="lead">Übermitteln Sie Dateien sicher per Drag-and-drop oder über die Dateiauswahl.</p>
+  <body class="page page-upload">
+    <main class="shell shell-upload">
+      <header class="topbar">
+        <div class="brand-block">
+          <p class="brand-mark">FüKw Dropzone</p>
+          <p class="brand-caption">Sicherer Dateieingang mit geführter Übermittlung.</p>
         </div>
+
         <nav class="session-nav" id="sessionNav" hidden>
-          <span id="sessionLabel" class="session-label"></span>
-          <a id="adminLink" href="/admin">Verwaltung</a>
+          <span id="sessionLabel" class="session-pill"></span>
+          <a id="adminLink" href="/admin" class="secondary-link">Freigaben verwalten</a>
           <button id="logoutBtn" type="button" class="ghost-btn">Abmelden</button>
         </nav>
       </header>
 
-      <section class="card context-card" id="uploadContext" aria-live="polite">
-        <h2 id="uploadContextTitle">Upload in Ihrer Sitzung</h2>
-        <p id="uploadContextHint" class="mini-note">Sie sind angemeldet und können Freigaben verwalten.</p>
+      <section class="hero hero-upload">
+        <div class="hero-copy">
+          <p class="kicker" id="uploadModeLabel">Upload-Zugang</p>
+          <h1 id="uploadHeroTitle">Dateien sicher senden</h1>
+          <p id="uploadHeroLead" class="hero-text">
+            Wählen Sie Ihre Dateien aus, ergänzen Sie bei Bedarf einen Hinweis und senden Sie die Übermittlung bewusst ab.
+          </p>
+        </div>
+
+        <div class="metric-grid" aria-label="Upload-Rahmendaten">
+          <article class="metric-card">
+            <span>Erlaubte Formate</span>
+            <strong id="allowedMimeSummary">Wird geladen...</strong>
+          </article>
+          <article class="metric-card">
+            <span>Maximale Dateigröße</span>
+            <strong id="maxFileSizeSummary">Wird geladen...</strong>
+          </article>
+          <article class="metric-card">
+            <span>Zusatzangaben</span>
+            <strong id="metaSummary">Hinweis und Kategorie optional</strong>
+          </article>
+        </div>
       </section>
 
-      <label class="dropzone" id="dropzone" for="files">
-        <span class="visually-hidden" id="dropzoneLabel">Dateien für den Upload auswählen</span>
-        <input id="files" type="file" multiple />
-        <span>Dateien hier ablegen oder zur Auswahl klicken</span>
-      </label>
+      <div class="app-grid">
+        <section class="panel panel-strong composer-panel">
+          <div class="panel-intro">
+            <p class="section-tag" id="uploadContextTag">Dateien auswählen</p>
+            <h2 id="uploadContextTitle">Ihre Übermittlung vorbereiten</h2>
+            <p id="uploadContextHint">
+              Wählen Sie zuerst alle Dateien aus. Vor dem Senden können Sie die Auswahl noch prüfen oder anpassen.
+            </p>
+          </div>
 
-      <div class="controls">
-        <label class="visually-hidden" for="hint">Hinweis zur Übermittlung</label>
-        <input id="hint" type="text" maxlength="500" placeholder="Hinweis zur Übermittlung (optional)" />
-        <label class="visually-hidden" for="category">Kategorie auswählen</label>
-        <select id="category">
-          <option value="">Kategorie auswählen (optional)</option>
-          <option value="bilder">Bilder</option>
-          <option value="dokumente">Dokumente</option>
-          <option value="sonstiges">Sonstiges</option>
-        </select>
-        <button id="uploadBtn" type="button">Dateien auswählen</button>
+          <p id="pageStatus" class="banner" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+
+          <div class="dropzone-shell">
+            <input id="files" type="file" multiple />
+            <label class="dropzone" id="dropzone" for="files">
+              <span class="dropzone-badge">Drag &amp; Drop oder Klick</span>
+              <strong>Dateien hier ablegen oder aus Ihrem Gerät auswählen</strong>
+              <span id="dropzoneHelp">Die Prüfung von Dateityp und Größe erfolgt vor dem Upload und erneut auf dem Server.</span>
+            </label>
+          </div>
+
+          <section id="queueSection" class="queue-section" hidden>
+            <div class="queue-head">
+              <div>
+                <h3>Ausgewählte Dateien</h3>
+                <p id="queueSummary" class="support-text">Noch keine Dateien ausgewählt.</p>
+              </div>
+              <button id="clearQueueBtn" type="button" class="ghost-btn">Auswahl leeren</button>
+            </div>
+
+            <ul id="queue" class="file-list"></ul>
+          </section>
+
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">Hinweis für das Team</span>
+              <textarea
+                id="hint"
+                maxlength="500"
+                rows="4"
+                placeholder="Optional: Was ist in den Dateien enthalten oder worauf sollte geachtet werden?"
+              ></textarea>
+              <span class="field-hint">Optional. Der Hinweis wird zusammen mit der Übermittlung gespeichert.</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Kategorie</span>
+              <select id="category"></select>
+              <span class="field-hint" id="categoryHint">Optional. Hilft bei der Zuordnung im Zielordner.</span>
+            </label>
+          </div>
+
+          <section id="progressPanel" class="progress-panel" hidden>
+            <div class="progress-header">
+              <h3>Übertragung läuft</h3>
+              <span id="overallProgressLabel" class="progress-label">0%</span>
+            </div>
+            <progress id="overallProgress" class="progress-bar" max="100" value="0"></progress>
+            <p id="uploadRunSummary" class="support-text">Die ausgewählten Dateien werden nacheinander übertragen.</p>
+          </section>
+
+          <div class="action-bar">
+            <button id="selectFilesBtn" type="button" class="ghost-btn">Dateien auswählen</button>
+            <button id="uploadBtn" type="button" class="primary-btn" disabled>Jetzt senden</button>
+          </div>
+        </section>
+
+        <aside class="side-stack">
+          <section class="panel side-panel">
+            <div class="panel-intro">
+              <p class="section-tag">Ablauf</p>
+              <h2>So läuft die Übermittlung ab</h2>
+            </div>
+            <ol class="step-list">
+              <li>Dateien auswählen oder per Drag &amp; Drop ablegen.</li>
+              <li>Optionalen Hinweis und Kategorie ergänzen.</li>
+              <li>Übermittlung bewusst absenden und Bestätigung abwarten.</li>
+            </ol>
+          </section>
+
+          <section class="panel side-panel" id="contextPanel">
+            <div class="panel-intro">
+              <p class="section-tag">Kontext</p>
+              <h2 id="contextTitle">Dieser Upload-Zugang</h2>
+            </div>
+            <ul class="detail-list">
+              <li id="contextAudience">Wird geladen...</li>
+              <li id="contextRestrictions">Wird geladen...</li>
+              <li id="contextAfterUpload">Wird geladen...</li>
+            </ul>
+          </section>
+
+          <section id="successPanel" class="panel panel-success" hidden>
+            <div class="panel-intro">
+              <p class="section-tag">Abschluss</p>
+              <h2 id="successTitle">Übermittlung abgeschlossen</h2>
+            </div>
+            <p id="successSummary">
+              Ihre Dateien wurden erfolgreich übermittelt. Wenn Sie weitere Unterlagen senden möchten, starten Sie eine neue Auswahl.
+            </p>
+            <button id="resetUploadBtn" type="button" class="secondary-btn">Weitere Dateien senden</button>
+          </section>
+        </aside>
       </div>
-
-      <ul id="queue" class="queue"></ul>
-      <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
     </main>
 
     <script type="module" src="/app.js"></script>
