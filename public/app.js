@@ -152,7 +152,7 @@ function configureCategoryOptions(categories) {
 
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = 'Keine Kategorie auswaehlen';
+  placeholder.textContent = 'Keine Kategorie auswählen';
   fragment.appendChild(placeholder);
 
   for (const entry of entries) {
@@ -172,34 +172,26 @@ function configureCategoryOptions(categories) {
 function applyModeCopy() {
   if (shareMode) {
     uploadModeLabel.textContent = 'Externer Upload-Zugang';
-    uploadHeroTitle.textContent = 'Dateien fuer diesen Freigabelink senden';
-    uploadHeroLead.textContent =
-      'Dieser Zugang ist auf die sichere Dateiuebermittlung beschraenkt. Sie koennen die Auswahl vor dem Senden in Ruhe pruefen.';
+    uploadHeroTitle.textContent = 'Dateien senden';
+    uploadHeroLead.textContent = 'Freigabelink aktiv. Dateien auswählen und senden.';
     uploadContextTag.textContent = 'Freigabelink';
-    uploadContextTitle.textContent = 'Externe Uebermittlung vorbereiten';
-    uploadContextHint.textContent =
-      'Sie sehen hier nur die Schritte fuer den Upload. Verwaltungsfunktionen stehen in diesem Zugang nicht zur Verfuegung.';
-    contextAudience.textContent = 'Sie senden ueber einen zeitlich begrenzten Upload-Zugang fuer externe Beteiligte.';
-    contextRestrictions.textContent =
-      'Dateityp und Dateigroesse werden vorab geprueft und serverseitig erneut bestaetigt.';
-    contextAfterUpload.textContent =
-      'Nach dem Senden koennen Sie weitere Dateien uebermitteln, solange der Freigabelink gueltig bleibt.';
+    uploadContextTitle.textContent = 'Übermittlung';
+    uploadContextHint.textContent = 'Dateien hinzufügen, optional ergänzen, dann senden.';
+    contextAudience.textContent = 'Zeitlich begrenzter externer Upload-Zugang.';
+    contextRestrictions.textContent = 'Format und Größe werden geprüft.';
+    contextAfterUpload.textContent = 'Weitere Dateien sind möglich, solange der Link gültig bleibt.';
     return;
   }
 
   uploadModeLabel.textContent = 'Interner Upload';
-  uploadHeroTitle.textContent = 'Dateien direkt in Ihrer Sitzung uebermitteln';
-  uploadHeroLead.textContent =
-    'Sie sind angemeldet und koennen Dateien senden, den Upload pruefen und bei Bedarf direkt zur Freigabe-Verwaltung wechseln.';
+  uploadHeroTitle.textContent = 'Dateien senden';
+  uploadHeroLead.textContent = 'Sitzung aktiv. Dateien auswählen und senden.';
   uploadContextTag.textContent = 'Sitzung';
-  uploadContextTitle.textContent = 'Interne Uebermittlung vorbereiten';
-  uploadContextHint.textContent =
-    'Waehlen Sie alle benoetigten Dateien aus, pruefen Sie die Angaben und starten Sie die Uebermittlung bewusst.';
-  contextAudience.textContent = 'Sie arbeiten in einer angemeldeten Sitzung mit Zugriff auf die Verwaltungsoberflaeche.';
-  contextRestrictions.textContent =
-    'Der Upload nutzt denselben geschuetzten Speicherpfad wie externe Freigaben, aber mit internem Sitzungszugang.';
-  contextAfterUpload.textContent =
-    'Nach dem Senden koennen Sie weitere Dateien uebermitteln oder direkt neue Upload-Zugaenge anlegen.';
+  uploadContextTitle.textContent = 'Übermittlung';
+  uploadContextHint.textContent = 'Dateien hinzufügen, optional ergänzen, dann senden.';
+  contextAudience.textContent = 'Interner Upload mit aktiver Sitzung.';
+  contextRestrictions.textContent = 'Format und Größe werden geprüft.';
+  contextAfterUpload.textContent = 'Nach dem Senden können weitere Dateien ergänzt werden.';
 }
 
 function applyUploadContext(payload) {
@@ -216,13 +208,13 @@ function applyUploadContext(payload) {
     ? formatFileSize(uploadContext.maxFileSizeBytes)
     : uploadContext.maxFileSizeMb
       ? `${uploadContext.maxFileSizeMb} MB`
-      : 'Wird serverseitig geprueft';
+      : 'Wird serverseitig geprüft';
   metaSummary.textContent = normalizeCategories(uploadContext.categories).length
     ? 'Hinweis und Kategorie optional'
     : 'Nur Hinweis optional';
   dropzoneHelp.textContent = uploadContext.maxFileSizeBytes
-    ? `Erlaubte Formate: ${summarizeMimeTypes(allowedTypes)}. Maximale Dateigroesse: ${formatFileSize(uploadContext.maxFileSizeBytes)}.`
-    : `Erlaubte Formate: ${summarizeMimeTypes(allowedTypes)}.`;
+    ? `${summarizeMimeTypes(allowedTypes)}. Maximal ${formatFileSize(uploadContext.maxFileSizeBytes)} je Datei.`
+    : summarizeMimeTypes(allowedTypes);
 
   if (uploadContext.hintMaxLength && Number.isFinite(uploadContext.hintMaxLength)) {
     hintInput.maxLength = uploadContext.hintMaxLength;
@@ -249,12 +241,12 @@ function buildQueueItem(file) {
 
 function validateFile(file) {
   if (uploadContext.maxFileSizeBytes && file.size > uploadContext.maxFileSizeBytes) {
-    return `Die Datei ist groesser als ${formatFileSize(uploadContext.maxFileSizeBytes)}.`;
+    return `Die Datei ist größer als ${formatFileSize(uploadContext.maxFileSizeBytes)}.`;
   }
 
   const allowedTypes = Array.isArray(uploadContext.allowedMimeTypes) ? uploadContext.allowedMimeTypes : [];
   if (allowedTypes.length > 0 && file.type && !allowedTypes.includes(file.type)) {
-    return `Der Dateityp ${file.type} ist fuer diesen Upload-Zugang nicht freigegeben.`;
+    return `Der Dateityp ${file.type} ist für diesen Upload-Zugang nicht freigegeben.`;
   }
 
   return '';
@@ -288,7 +280,7 @@ function revalidateQueue() {
 
 function formatQueueSummary() {
   if (queueItems.length === 0) {
-    return 'Noch keine Dateien ausgewaehlt.';
+    return 'Noch keine Dateien ausgewählt.';
   }
 
   const totalBytes = queueItems.reduce((sum, item) => sum + item.file.size, 0);
@@ -296,7 +288,7 @@ function formatQueueSummary() {
   const invalidCount = queueItems.filter((item) => item.status === 'invalid').length;
 
   if (invalidCount > 0) {
-    return `${queueItems.length} Datei(en), ${formatFileSize(totalBytes)} insgesamt. ${invalidCount} Datei(en) muessen vor dem Senden korrigiert oder entfernt werden.`;
+    return `${queueItems.length} Datei(en), ${formatFileSize(totalBytes)} insgesamt. ${invalidCount} Datei(en) müssen vor dem Senden korrigiert oder entfernt werden.`;
   }
 
   return `${queueItems.length} Datei(en), ${formatFileSize(totalBytes)} insgesamt. ${readyCount} Datei(en) bereit zum Senden.`;
@@ -347,7 +339,7 @@ function renderQueue() {
           : item.status === 'failed'
             ? 'Fehlgeschlagen'
             : item.status === 'invalid'
-              ? 'Pruefung erforderlich'
+              ? 'Prüfung erforderlich'
               : 'Bereit';
     const statusTone =
       item.status === 'uploaded'
@@ -382,15 +374,15 @@ function renderQueue() {
     if (item.status === 'uploaded') {
       detail.textContent = item.uploadedName
         ? `Gespeichert als ${item.uploadedName}.`
-        : 'Erfolgreich uebermittelt.';
+        : 'Erfolgreich übermittelt.';
     } else if (item.status === 'uploading') {
-      detail.textContent = 'Datei wird derzeit uebertragen.';
+      detail.textContent = 'Datei wird derzeit übertragen.';
     } else if (item.status === 'failed') {
-      detail.textContent = 'Sie koennen die Datei erneut senden oder aus der Auswahl entfernen.';
+      detail.textContent = 'Sie können die Datei erneut senden oder aus der Auswahl entfernen.';
     } else if (item.status === 'invalid') {
       detail.textContent = 'Diese Datei wird erst gesendet, wenn die Auswahl angepasst wurde.';
     } else {
-      detail.textContent = 'Wird beim naechsten Upload-Lauf uebermittelt.';
+      detail.textContent = 'Wird beim nächsten Upload-Lauf übermittelt.';
     }
 
     foot.appendChild(detail);
@@ -443,7 +435,7 @@ function addFiles(fileList) {
   if (invalidCount > 0) {
     setBanner(
       pageStatus,
-      `${invalidCount} Datei(en) sind noch nicht sendbar. Bitte pruefen Sie Dateityp oder Dateigroesse.`,
+      `${invalidCount} Datei(en) sind noch nicht sendbar. Bitte prüfen Sie Typ oder Größe.`,
       'warning'
     );
   }
@@ -478,15 +470,15 @@ function getUploadErrorMessage(status, payload) {
   const rawError = String(payload?.error ?? '');
 
   if (status === 401 || status === 403) {
-    return 'Der Upload-Zugang ist nicht mehr gueltig. Bitte pruefen Sie Anmeldung oder Freigabelink.';
+    return 'Der Upload-Zugang ist nicht mehr gültig. Bitte prüfen Sie Anmeldung oder Freigabelink.';
   }
 
   if (status === 413) {
-    return 'Die Datei ist groesser als fuer diesen Upload-Zugang erlaubt.';
+    return 'Die Datei ist größer als für diesen Upload-Zugang erlaubt.';
   }
 
   if (status === 415) {
-    return 'Der Dateityp ist fuer diesen Upload-Zugang nicht freigegeben.';
+    return 'Der Dateityp ist für diesen Upload-Zugang nicht freigegeben.';
   }
 
   if (status === 429) {
@@ -498,10 +490,10 @@ function getUploadErrorMessage(status, payload) {
   }
 
   if (status >= 500) {
-    return 'Die Uebermittlung konnte serverseitig nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
+    return 'Die Übermittlung konnte serverseitig nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
   }
 
-  return `Die Uebermittlung wurde mit Status ${status} abgelehnt.`;
+  return `Die Übermittlung wurde mit Status ${status} abgelehnt.`;
 }
 
 function updateOverallProgress(currentFileId = '', currentLoaded = 0) {
@@ -572,7 +564,7 @@ function uploadFile(item) {
         item.status = 'uploaded';
         item.progress = 100;
         item.uploadedName = payload.uploaded[0]?.filename ?? item.file.name;
-        item.responseMessage = 'Datei erfolgreich uebermittelt.';
+        item.responseMessage = 'Datei erfolgreich übermittelt.';
         updateOverallProgress(item.id, item.file.size);
         renderQueue();
         resolve(true);
@@ -589,7 +581,7 @@ function uploadFile(item) {
     xhr.addEventListener('error', () => {
       item.status = 'failed';
       item.progress = 0;
-      item.error = 'Netzwerkfehler waehrend der Uebertragung. Bitte versuchen Sie es erneut.';
+      item.error = 'Netzwerkfehler während der Übertragung. Bitte versuchen Sie es erneut.';
       renderQueue();
       resolve(false);
     });
@@ -606,12 +598,12 @@ async function startUpload() {
 
   const sendableItems = queueItems.filter((item) => item.status === 'ready' || item.status === 'failed');
   if (sendableItems.length === 0) {
-    setBanner(pageStatus, 'Bitte waehlen Sie mindestens eine sendbare Datei aus.', 'warning');
+    setBanner(pageStatus, 'Bitte wählen Sie mindestens eine sendbare Datei aus.', 'warning');
     return;
   }
 
   if (queueItems.some((item) => item.status === 'invalid')) {
-    setBanner(pageStatus, 'Einige Dateien muessen vor dem Senden korrigiert oder entfernt werden.', 'warning');
+    setBanner(pageStatus, 'Einige Dateien müssen vor dem Senden korrigiert oder entfernt werden.', 'warning');
     return;
   }
 
@@ -625,8 +617,8 @@ async function startUpload() {
   progressPanel.hidden = false;
   overallProgress.value = 0;
   overallProgressLabel.textContent = '0%';
-  uploadRunSummary.textContent = `${sendableItems.length} Datei(en) werden nacheinander uebertragen.`;
-  setBanner(pageStatus, 'Die Uebermittlung wurde gestartet.', 'info');
+  uploadRunSummary.textContent = `${sendableItems.length} Datei(en) werden nacheinander übertragen.`;
+  setBanner(pageStatus, 'Die Übermittlung wurde gestartet.', 'info');
   renderQueue();
 
   let successCount = 0;
@@ -647,24 +639,21 @@ async function startUpload() {
   renderQueue();
 
   if (successCount === sendableItems.length) {
-    setBanner(pageStatus, `${successCount} Datei(en) wurden erfolgreich uebermittelt.`, 'success');
-    successTitle.textContent = 'Uebermittlung abgeschlossen';
-    successSummary.textContent =
-      'Alle ausgewaehlten Dateien wurden erfolgreich gesendet. Fuer weitere Unterlagen koennen Sie direkt eine neue Auswahl starten.';
+    setBanner(pageStatus, `${successCount} Datei(en) wurden erfolgreich übermittelt.`, 'success');
+    successTitle.textContent = 'Übermittlung abgeschlossen';
+    successSummary.textContent = 'Alle ausgewählten Dateien wurden erfolgreich gesendet.';
   } else if (successCount > 0) {
     setBanner(
       pageStatus,
-      `${successCount} Datei(en) wurden uebermittelt, ${failedCount} Datei(en) muessen erneut gesendet werden.`,
+      `${successCount} Datei(en) wurden übermittelt, ${failedCount} Datei(en) müssen erneut gesendet werden.`,
       'warning'
     );
-    successTitle.textContent = 'Uebermittlung teilweise abgeschlossen';
-    successSummary.textContent =
-      'Ein Teil der Auswahl wurde erfolgreich gesendet. Fehlgeschlagene Dateien bleiben in der Liste und koennen erneut uebermittelt werden.';
+    successTitle.textContent = 'Übermittlung teilweise abgeschlossen';
+    successSummary.textContent = 'Fehlgeschlagene Dateien bleiben in der Liste und können erneut übermittelt werden.';
   } else {
-    setBanner(pageStatus, 'Keine Datei konnte uebermittelt werden. Bitte pruefen Sie die Meldungen in der Liste.', 'error');
-    successTitle.textContent = 'Uebermittlung fehlgeschlagen';
-    successSummary.textContent =
-      'Bitte pruefen Sie die einzelnen Dateimeldungen. Sie koennen die Auswahl anpassen oder den Upload erneut starten.';
+    setBanner(pageStatus, 'Keine Datei konnte übermittelt werden. Bitte prüfen Sie die Meldungen in der Liste.', 'error');
+    successTitle.textContent = 'Übermittlung fehlgeschlagen';
+    successSummary.textContent = 'Bitte prüfen Sie die einzelnen Dateimeldungen.';
   }
 
   successPanel.hidden = false;
@@ -682,7 +671,7 @@ async function loadUploadContext() {
 
     setBanner(
       pageStatus,
-      'Upload-Informationen konnten nicht geladen werden. Die serverseitige Pruefung bleibt aktiv, Hinweise sind derzeit eingeschraenkt.',
+      'Upload-Informationen konnten nicht geladen werden. Die serverseitige Prüfung bleibt aktiv, Hinweise sind derzeit eingeschränkt.',
       'warning'
     );
     applyUploadContext(createFallbackContext());
@@ -795,5 +784,5 @@ Promise.all([loadUploadContext(), loadSessionNavigation()]).catch((error) => {
     return;
   }
 
-  setBanner(pageStatus, 'Die Seite konnte nicht vollstaendig initialisiert werden. Bitte laden Sie sie erneut.', 'error');
+  setBanner(pageStatus, 'Die Seite konnte nicht vollständig initialisiert werden. Bitte laden Sie sie erneut.', 'error');
 });

@@ -37,7 +37,7 @@ if (error === 'oidc_failed') {
 
 if (error === 'invalid_token') {
   setMessage(
-    'Dieser Zugangscode ist ungueltig oder bereits abgelaufen. Bitte pruefen Sie den Code oder fordern Sie einen neuen Freigabelink an.',
+    'Dieser Zugangscode ist ungültig oder bereits abgelaufen. Bitte prüfen Sie den Code oder fordern Sie einen neuen Freigabelink an.',
     'error'
   );
 }
@@ -53,7 +53,7 @@ tokenForm.addEventListener('submit', (event) => {
 
   const normalizedToken = normalizeShareTokenInput(shareTokenInput.value);
   if (!normalizedToken) {
-    setMessage('Bitte geben Sie einen Zugangscode oder einen vollstaendigen Freigabelink ein.', 'error');
+    setMessage('Bitte geben Sie einen Zugangscode oder einen vollständigen Freigabelink ein.', 'error');
     shareTokenInput.focus();
     return;
   }
@@ -63,7 +63,7 @@ tokenForm.addEventListener('submit', (event) => {
   const submitButton = tokenForm.querySelector('button[type="submit"]');
   if (submitButton) {
     submitButton.disabled = true;
-    submitButton.textContent = 'Upload-Bereich wird geoeffnet...';
+    submitButton.textContent = 'Upload-Bereich wird geöffnet...';
   }
 
   window.location.href = `/u/${encodeURIComponent(normalizedToken)}`;

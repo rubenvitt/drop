@@ -23,39 +23,37 @@
         </nav>
       </header>
 
-      <section class="hero hero-upload">
-        <div class="hero-copy">
-          <p class="kicker" id="uploadModeLabel">Upload-Zugang</p>
-          <h1 id="uploadHeroTitle">Dateien sicher senden</h1>
-          <p id="uploadHeroLead" class="hero-text">
-            Wählen Sie Ihre Dateien aus, ergänzen Sie bei Bedarf einen Hinweis und senden Sie die Übermittlung bewusst ab.
-          </p>
-        </div>
-
-        <div class="metric-grid" aria-label="Upload-Rahmendaten">
-          <article class="metric-card">
-            <span>Erlaubte Formate</span>
-            <strong id="allowedMimeSummary">Wird geladen...</strong>
-          </article>
-          <article class="metric-card">
-            <span>Maximale Dateigröße</span>
-            <strong id="maxFileSizeSummary">Wird geladen...</strong>
-          </article>
-          <article class="metric-card">
-            <span>Zusatzangaben</span>
-            <strong id="metaSummary">Hinweis und Kategorie optional</strong>
-          </article>
-        </div>
-      </section>
-
-      <div class="app-grid">
-        <section class="panel panel-strong composer-panel">
-          <div class="panel-intro">
-            <p class="section-tag" id="uploadContextTag">Dateien auswählen</p>
-            <h2 id="uploadContextTitle">Ihre Übermittlung vorbereiten</h2>
-            <p id="uploadContextHint">
-              Wählen Sie zuerst alle Dateien aus. Vor dem Senden können Sie die Auswahl noch prüfen oder anpassen.
+      <section class="upload-shell">
+        <header class="upload-header">
+          <div class="upload-heading">
+            <p class="kicker" id="uploadModeLabel">Upload-Zugang</p>
+            <h1 id="uploadHeroTitle" class="upload-title">Dateien senden</h1>
+            <p id="uploadHeroLead" class="upload-subtitle">
+              Dateien auswählen, kurz prüfen und anschließend bewusst senden.
             </p>
+          </div>
+
+          <dl class="upload-facts" aria-label="Upload-Rahmendaten">
+            <div class="upload-fact">
+              <dt>Formate</dt>
+              <dd id="allowedMimeSummary">Wird geladen...</dd>
+            </div>
+            <div class="upload-fact">
+              <dt>Max. Größe</dt>
+              <dd id="maxFileSizeSummary">Wird geladen...</dd>
+            </div>
+            <div class="upload-fact">
+              <dt>Zusatzangaben</dt>
+              <dd id="metaSummary">Hinweis und Kategorie optional</dd>
+            </div>
+          </dl>
+        </header>
+
+        <section class="upload-main">
+          <div class="upload-intro">
+            <p class="section-tag" id="uploadContextTag">Dateien auswählen</p>
+            <h2 id="uploadContextTitle">Übermittlung vorbereiten</h2>
+            <p id="uploadContextHint">Dateien hinzufügen, optional ergänzen, dann senden.</p>
           </div>
 
           <p id="pageStatus" class="banner" role="status" aria-live="polite" aria-atomic="true" hidden></p>
@@ -64,8 +62,8 @@
             <input id="files" type="file" multiple />
             <label class="dropzone" id="dropzone" for="files">
               <span class="dropzone-badge">Drag &amp; Drop oder Klick</span>
-              <strong>Dateien hier ablegen oder aus Ihrem Gerät auswählen</strong>
-              <span id="dropzoneHelp">Die Prüfung von Dateityp und Größe erfolgt vor dem Upload und erneut auf dem Server.</span>
+              <strong>Dateien hier ablegen oder auswählen</strong>
+              <span id="dropzoneHelp">Dateityp und Größe werden vor dem Upload und erneut auf dem Server geprüft.</span>
             </label>
           </div>
 
@@ -83,14 +81,14 @@
 
           <div class="form-grid">
             <label class="field">
-              <span class="field-label">Hinweis für das Team</span>
+              <span class="field-label">Hinweis</span>
               <textarea
                 id="hint"
                 maxlength="500"
                 rows="4"
-                placeholder="Optional: Was ist in den Dateien enthalten oder worauf sollte geachtet werden?"
+                placeholder="Optionaler Hinweis zur Übermittlung"
               ></textarea>
-              <span class="field-hint">Optional. Der Hinweis wird zusammen mit der Übermittlung gespeichert.</span>
+              <span class="field-hint">Optional. Wird zusammen mit der Übermittlung gespeichert.</span>
             </label>
 
             <label class="field">
@@ -99,6 +97,12 @@
               <span class="field-hint" id="categoryHint">Optional. Hilft bei der Zuordnung im Zielordner.</span>
             </label>
           </div>
+
+          <ul class="upload-notes">
+            <li id="contextAudience">Wird geladen...</li>
+            <li id="contextRestrictions">Wird geladen...</li>
+            <li id="contextAfterUpload">Wird geladen...</li>
+          </ul>
 
           <section id="progressPanel" class="progress-panel" hidden>
             <div class="progress-header">
@@ -113,36 +117,9 @@
             <button id="selectFilesBtn" type="button" class="ghost-btn">Dateien auswählen</button>
             <button id="uploadBtn" type="button" class="primary-btn" disabled>Jetzt senden</button>
           </div>
-        </section>
 
-        <aside class="side-stack">
-          <section class="panel side-panel">
+          <section id="successPanel" class="upload-success" hidden>
             <div class="panel-intro">
-              <p class="section-tag">Ablauf</p>
-              <h2>So läuft die Übermittlung ab</h2>
-            </div>
-            <ol class="step-list">
-              <li>Dateien auswählen oder per Drag &amp; Drop ablegen.</li>
-              <li>Optionalen Hinweis und Kategorie ergänzen.</li>
-              <li>Übermittlung bewusst absenden und Bestätigung abwarten.</li>
-            </ol>
-          </section>
-
-          <section class="panel side-panel" id="contextPanel">
-            <div class="panel-intro">
-              <p class="section-tag">Kontext</p>
-              <h2 id="contextTitle">Dieser Upload-Zugang</h2>
-            </div>
-            <ul class="detail-list">
-              <li id="contextAudience">Wird geladen...</li>
-              <li id="contextRestrictions">Wird geladen...</li>
-              <li id="contextAfterUpload">Wird geladen...</li>
-            </ul>
-          </section>
-
-          <section id="successPanel" class="panel panel-success" hidden>
-            <div class="panel-intro">
-              <p class="section-tag">Abschluss</p>
               <h2 id="successTitle">Übermittlung abgeschlossen</h2>
             </div>
             <p id="successSummary">
@@ -150,8 +127,8 @@
             </p>
             <button id="resetUploadBtn" type="button" class="secondary-btn">Weitere Dateien senden</button>
           </section>
-        </aside>
-      </div>
+        </section>
+      </section>
     </main>
 
     <script type="module" src="/app.js"></script>
