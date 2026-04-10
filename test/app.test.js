@@ -201,7 +201,7 @@ async function createTestApp() {
     timezone: 'Europe/Berlin',
     caddyDomain: 'drop.local',
     nodeEnv: 'test',
-    staticDir: path.join(process.cwd(), 'public'),
+    staticDir: path.join(process.cwd(), 'web', 'dist'),
     authDbPath: path.join(tempDir, 'auth.sqlite'),
     authDbDir: path.join(tempDir, 'auth'),
     betterAuthSecret: 'test-secret',
@@ -236,7 +236,7 @@ test('shows a welcome page at root and protects upload endpoint by session', asy
     url: '/'
   });
   assert.equal(pageResponse.statusCode, 200);
-  assert.match(pageResponse.body, /Zugangscode eingeben/);
+  assert.match(pageResponse.body, /FüKw Dropzone/);
 
   const sessionPageResponse = await app.inject({
     method: 'GET',

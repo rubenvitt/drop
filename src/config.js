@@ -36,7 +36,7 @@ export function loadConfig(env = process.env) {
     timezone: env.TZ ?? 'Europe/Berlin',
     caddyDomain: env.CADDY_DOMAIN ?? 'drop.local',
     nodeEnv: env.NODE_ENV ?? 'production',
-    staticDir: path.join(process.cwd(), 'public'),
+    staticDir: path.join(process.cwd(), 'web', 'dist'),
     authDbPath,
     authDbDir: path.dirname(authDbPath),
     betterAuthSecret: env.BETTER_AUTH_SECRET ?? '',

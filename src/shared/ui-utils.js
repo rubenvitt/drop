@@ -29,10 +29,7 @@ export function isShareLinkPath(pathname) {
 
 function extractTokenCandidate(value) {
   const raw = String(value ?? '').trim();
-
-  if (!raw) {
-    return '';
-  }
+  if (!raw) return '';
 
   if (raw.startsWith('/u/')) {
     return raw.split('/').filter(Boolean)[1] ?? '';
@@ -41,9 +38,7 @@ function extractTokenCandidate(value) {
   try {
     const url = new URL(raw);
     const pathParts = url.pathname.split('/').filter(Boolean);
-    if (pathParts[0] === 'u' && pathParts[1]) {
-      return pathParts[1];
-    }
+    if (pathParts[0] === 'u' && pathParts[1]) return pathParts[1];
   } catch {
     return raw;
   }
@@ -53,33 +48,23 @@ function extractTokenCandidate(value) {
 
 function groupTokenBody(value) {
   const groups = [];
-
   for (let index = 0; index < value.length; index += SHARE_TOKEN_GROUP_LENGTH) {
     groups.push(value.slice(index, index + SHARE_TOKEN_GROUP_LENGTH));
   }
-
   return groups.join('-');
 }
 
 export function normalizeShareTokenInput(value) {
   const token = extractTokenCandidate(value).trim().toLowerCase();
+  if (!token) return '';
 
-  if (!token) {
-    return '';
-  }
-
-  if (token.startsWith('dz_')) {
-    return token.replace(/\s+/g, '');
-  }
+  if (token.startsWith('dz_')) return token.replace(/\s+/g, '');
 
   const compact = token.replace(/[^a-z0-9-]/g, '');
 
   if (compact.startsWith(SHARE_TOKEN_PREFIX)) {
     const body = compact.slice(SHARE_TOKEN_PREFIX.length).replace(/-/g, '');
-    if (!body) {
-      return '';
-    }
-
+    if (!body) return '';
     return body.length === SHARE_TOKEN_BODY_LENGTH
       ? `${SHARE_TOKEN_PREFIX}${groupTokenBody(body)}`
       : `${SHARE_TOKEN_PREFIX}${body}`;
@@ -87,10 +72,7 @@ export function normalizeShareTokenInput(value) {
 
   if (compact.startsWith('dz')) {
     const body = compact.slice(2).replace(/-/g, '');
-    if (!body) {
-      return '';
-    }
-
+    if (!body) return '';
     return body.length === SHARE_TOKEN_BODY_LENGTH
       ? `${SHARE_TOKEN_PREFIX}${groupTokenBody(body)}`
       : `${SHARE_TOKEN_PREFIX}${body}`;
@@ -105,9 +87,7 @@ export function normalizeShareTokenInput(value) {
 
 export function formatFileSize(bytes) {
   const size = Number(bytes);
-  if (!Number.isFinite(size) || size <= 0) {
-    return '0 B';
-  }
+  if (!Number.isFinite(size) || size <= 0) return '0 B';
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = size;
@@ -123,23 +103,15 @@ export function formatFileSize(bytes) {
 }
 
 export function labelMimeType(value) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    return 'Unbekannt';
-  }
-
+  if (typeof value !== 'string' || value.trim() === '') return 'Unbekannt';
   return MIME_LABELS[value] ?? value.split('/').pop()?.toUpperCase() ?? value;
 }
 
 export function summarizeMimeTypes(values, maxItems = 4) {
   const list = Array.isArray(values) ? values.filter(Boolean) : [];
-  if (list.length === 0) {
-    return 'Wird serverseitig geprüft';
-  }
+  if (list.length === 0) return 'Wird serverseitig geprüft';
 
   const labels = list.slice(0, maxItems).map(labelMimeType);
-  if (list.length <= maxItems) {
-    return labels.join(', ');
-  }
-
+  if (list.length <= maxItems) return labels.join(', ');
   return `${labels.join(', ')} und weitere`;
 }

@@ -496,7 +496,7 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
       return reply.redirect(returnTo);
     }
 
-    return reply.sendFile('login.html');
+    return reply.sendFile('index.html');
   };
 
   app.route({
@@ -579,9 +579,9 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
     return reply.redirect('/');
   });
 
-  app.get('/admin', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('admin.html'));
+  app.get('/admin', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
 
-  app.get('/admin.html', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('admin.html'));
+  app.get('/admin.html', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
 
   app.get('/app', { preHandler: requireSession('page') }, async (_, reply) => reply.sendFile('index.html'));
 
@@ -674,6 +674,14 @@ export async function createApp({ config = loadConfig(), authService } = {}) {
 
   app.post('/upload', { preHandler: requireSession('api') }, uploadHandler);
   app.post('/u/:token/upload', { preHandler: requireShareToken() }, uploadHandler);
+
+  app.setNotFoundHandler(async (req, reply) => {
+    const accept = req.headers.accept ?? '';
+    if (accept.includes('text/html') || (!accept.includes('application/json') && req.method === 'GET')) {
+      return reply.sendFile('index.html');
+    }
+    return reply.code(404).send({ error: 'Not found' });
+  });
 
   app.setErrorHandler((error, _req, reply) => {
     if (error?.code === 'FST_REQ_FILE_TOO_LARGE') {
