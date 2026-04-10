@@ -208,7 +208,14 @@ async function createTestApp() {
     betterAuthBaseUrl: 'http://localhost:8080',
     pocketIdDiscoveryUrl: 'https://pocketid.example/.well-known/openid-configuration',
     pocketIdClientId: 'client-id',
-    pocketIdClientSecret: 'client-secret'
+    pocketIdClientSecret: 'client-secret',
+    av: {
+      enabled: false,
+      host: 'localhost',
+      port: 3310,
+      timeoutMs: 5000,
+      failOpen: false
+    }
   };
   const authService = new StubAuthService(config.betterAuthBaseUrl);
   const app = await createApp({
@@ -222,6 +229,53 @@ async function createTestApp() {
     config,
     tempDir
   };
+}
+
+function createStubScanner(scanFn) {
+  return {
+    enabled: true,
+    scan: scanFn
+  };
+}
+
+async function createTestAppWithScanner(scanner) {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dropzone-av-test-'));
+  const config = {
+    host: '127.0.0.1',
+    port: 0,
+    uploadDir: path.join(tempDir, 'uploads'),
+    metaDir: path.join(tempDir, 'meta'),
+    maxFileSizeMb: 10,
+    allowedMime: ['text/plain'],
+    maxParallelUploads: 2,
+    rateLimitPerMin: 100,
+    timezone: 'Europe/Berlin',
+    caddyDomain: 'drop.local',
+    nodeEnv: 'test',
+    staticDir: path.join(process.cwd(), 'web', 'dist'),
+    authDbPath: path.join(tempDir, 'auth.sqlite'),
+    authDbDir: path.join(tempDir, 'auth'),
+    betterAuthSecret: 'test-secret',
+    betterAuthBaseUrl: 'http://localhost:8080',
+    pocketIdDiscoveryUrl: 'https://pocketid.example/.well-known/openid-configuration',
+    pocketIdClientId: 'client-id',
+    pocketIdClientSecret: 'client-secret',
+    av: {
+      enabled: true,
+      host: 'localhost',
+      port: 3310,
+      timeoutMs: 5000,
+      failOpen: false
+    }
+  };
+  const authService = new StubAuthService(config.betterAuthBaseUrl);
+  const app = await createApp({
+    config,
+    authService,
+    scanner
+  });
+
+  return { app, authService, config, tempDir };
 }
 
 test('shows a welcome page at root and protects upload endpoint by session', async (t) => {
@@ -509,4 +563,135 @@ test('starts Pocket ID login and clears session on logout', async (t) => {
   });
   assert.equal(logoutResponse.statusCode, 302);
   assert.equal(logoutResponse.headers.location, '/');
+});
+
+test('accepts clean files when antivirus scan passes', async (t) => {
+  const scanner = createStubScanner(async () => ({ clean: true }));
+  const { app, config, tempDir } = await createTestAppWithScanner(scanner);
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const multipart = createMultipartPayload();
+  const response = await app.inject({
+    method: 'POST',
+    url: '/upload',
+    headers: {
+      cookie: SESSION_COOKIE,
+      'content-type': multipart.contentType
+    },
+    payload: multipart.body
+  });
+  assert.equal(response.statusCode, 200);
+
+  const storedFile = await readFile(path.join(config.uploadDir, 'demo.txt'), 'utf8');
+  assert.equal(storedFile, 'hello');
+});
+
+test('rejects files when antivirus detects a virus', async (t) => {
+  const scanner = createStubScanner(async () => ({ clean: false, virus: 'Eicar-Signature' }));
+  const { app, config, tempDir } = await createTestAppWithScanner(scanner);
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const multipart = createMultipartPayload();
+  const response = await app.inject({
+    method: 'POST',
+    url: '/upload',
+    headers: {
+      cookie: SESSION_COOKIE,
+      'content-type': multipart.contentType
+    },
+    payload: multipart.body
+  });
+  assert.equal(response.statusCode, 422);
+  const body = response.json();
+  assert.equal(body.errors[0].error, 'virus_detected');
+  assert.equal(body.errors[0].virus, 'Eicar-Signature');
+
+  const { access: accessFn } = await import('node:fs/promises');
+  await assert.rejects(accessFn(path.join(config.uploadDir, 'demo.txt')));
+});
+
+test('rejects upload when antivirus is unavailable and failOpen is false', async (t) => {
+  const scanner = createStubScanner(async () => {
+    throw new Error('Connection refused');
+  });
+  const { app, tempDir } = await createTestAppWithScanner(scanner);
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const multipart = createMultipartPayload();
+  const response = await app.inject({
+    method: 'POST',
+    url: '/upload',
+    headers: {
+      cookie: SESSION_COOKIE,
+      'content-type': multipart.contentType
+    },
+    payload: multipart.body
+  });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.json().errors[0].error, 'av_unavailable');
+});
+
+test('allows upload when antivirus is unavailable and failOpen is true', async (t) => {
+  const scanner = createStubScanner(async () => {
+    throw new Error('Connection refused');
+  });
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'dropzone-av-test-'));
+  const config = {
+    host: '127.0.0.1',
+    port: 0,
+    uploadDir: path.join(tempDir, 'uploads'),
+    metaDir: path.join(tempDir, 'meta'),
+    maxFileSizeMb: 10,
+    allowedMime: ['text/plain'],
+    maxParallelUploads: 2,
+    rateLimitPerMin: 100,
+    timezone: 'Europe/Berlin',
+    caddyDomain: 'drop.local',
+    nodeEnv: 'test',
+    staticDir: path.join(process.cwd(), 'web', 'dist'),
+    authDbPath: path.join(tempDir, 'auth.sqlite'),
+    authDbDir: path.join(tempDir, 'auth'),
+    betterAuthSecret: 'test-secret',
+    betterAuthBaseUrl: 'http://localhost:8080',
+    pocketIdDiscoveryUrl: 'https://pocketid.example/.well-known/openid-configuration',
+    pocketIdClientId: 'client-id',
+    pocketIdClientSecret: 'client-secret',
+    av: {
+      enabled: true,
+      host: 'localhost',
+      port: 3310,
+      timeoutMs: 5000,
+      failOpen: true
+    }
+  };
+  const authService = new StubAuthService(config.betterAuthBaseUrl);
+  const app = await createApp({ config, authService, scanner });
+  t.after(async () => {
+    await app.close();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const multipart = createMultipartPayload();
+  const response = await app.inject({
+    method: 'POST',
+    url: '/upload',
+    headers: {
+      cookie: SESSION_COOKIE,
+      'content-type': multipart.contentType
+    },
+    payload: multipart.body
+  });
+  assert.equal(response.statusCode, 200);
+
+  const storedFile = await readFile(path.join(config.uploadDir, 'demo.txt'), 'utf8');
+  assert.equal(storedFile, 'hello');
 });

@@ -8,6 +8,7 @@ import fastifyStatic from '@fastify/static';
 import * as Sentry from '@sentry/node';
 import QRCode from 'qrcode';
 import { loadConfig } from './config.js';
+import { createAvScanner, createNoopScanner } from './antivirus.js';
 import { createRateLimiter, requestIp, Semaphore } from './security.js';
 import { FILE_WRITE_PERMISSION } from './share-token-config.js';
 import { ensureDir, findAvailableFilePath, sanitizeCategory, sanitizeFilename } from './utils.js';
@@ -279,7 +280,7 @@ function buildUploadContext(config, mode) {
   };
 }
 
-function createUploadHandler({ app, config, semaphore }) {
+function createUploadHandler({ app, config, semaphore, scanner }) {
   return async function handleUpload(req, reply) {
     await semaphore.acquire();
 
@@ -323,6 +324,29 @@ function createUploadHandler({ app, config, semaphore }) {
 
         try {
           await pipeline(part.file, createWriteStream(tempPath, { flags: 'wx' }));
+
+          if (scanner.enabled) {
+            let scanResult;
+            try {
+              scanResult = await scanner.scan(tempPath);
+            } catch (scanError) {
+              app.log.error({ ip, filename: part.filename, err: scanError }, 'antivirus scan error');
+              if (!config.av.failOpen) {
+                await rm(tempPath, { force: true });
+                errors.push({ file: part.filename, error: 'av_unavailable' });
+                continue;
+              }
+              scanResult = { clean: true };
+            }
+
+            if (!scanResult.clean) {
+              await rm(tempPath, { force: true });
+              errors.push({ file: part.filename, error: 'virus_detected', virus: scanResult.virus });
+              app.log.warn({ ip, filename: part.filename, virus: scanResult.virus, size: bytes, result: 'virus_detected' }, 'upload');
+              continue;
+            }
+          }
+
           await rename(tempPath, finalPath);
 
           if (hint || category) {
@@ -372,6 +396,14 @@ function createUploadHandler({ app, config, semaphore }) {
         return reply.code(415).send({ error: 'Disallowed MIME type', errors });
       }
 
+      if (uploaded.length === 0 && errors.some((entry) => entry.error === 'virus_detected')) {
+        return reply.code(422).send({ error: 'Virus detected in uploaded file(s)', errors });
+      }
+
+      if (uploaded.length === 0 && errors.some((entry) => entry.error === 'av_unavailable')) {
+        return reply.code(503).send({ error: 'Antivirus scanner unavailable', errors });
+      }
+
       return reply.code(errors.length > 0 ? 207 : 200).send({ uploaded, errors });
     } catch (error) {
       if (error?.code === 'FST_REQ_FILE_TOO_LARGE') {
@@ -391,15 +423,18 @@ function createUploadHandler({ app, config, semaphore }) {
   };
 }
 
-export async function createApp({ config = loadConfig(), authService } = {}) {
+export async function createApp({ config = loadConfig(), authService, scanner: injectedScanner } = {}) {
   const maxFileSizeBytes = config.maxFileSizeMb * 1024 * 1024;
   const semaphore = new Semaphore(config.maxParallelUploads);
   const checkRateLimit = createRateLimiter(config.rateLimitPerMin);
   const resolvedAuthService =
     authService ?? (await import('./auth.js')).createBetterAuthService(config);
+  const scanner = injectedScanner ?? (config.av.enabled
+    ? createAvScanner({ host: config.av.host, port: config.av.port, timeoutMs: config.av.timeoutMs })
+    : createNoopScanner());
 
   const app = Fastify({ logger: true, bodyLimit: maxFileSizeBytes + 1024 * 1024 });
-  const uploadHandler = createUploadHandler({ app, config, semaphore });
+  const uploadHandler = createUploadHandler({ app, config, semaphore, scanner });
 
   await ensureDir(config.uploadDir);
   await ensureDir(config.metaDir);

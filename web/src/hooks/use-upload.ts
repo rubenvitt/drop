@@ -39,7 +39,11 @@ function getUploadErrorMessage(
     return "Der Upload-Zugang ist nicht mehr gültig.";
   if (status === 413) return "Die Datei ist zu groß.";
   if (status === 415) return "Der Dateityp ist nicht freigegeben.";
+  if (status === 422 || rawError.includes("virus_detected"))
+    return "Die Datei wurde als schädlich erkannt und abgelehnt.";
   if (status === 429) return "Zu viele Upload-Versuche. Bitte warten.";
+  if (status === 503 && rawError.includes("Antivirus"))
+    return "Virenprüfung nicht verfügbar. Bitte später erneut versuchen.";
   if (rawError.includes("EACCES") || rawError.includes("/uploads"))
     return "Server kann die Datei nicht speichern.";
   if (status >= 500) return "Serverfehler. Bitte erneut versuchen.";
