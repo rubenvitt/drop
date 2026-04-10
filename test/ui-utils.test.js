@@ -5,7 +5,7 @@ import {
   normalizeShareTokenInput,
   resolveUploadContextPath,
   resolveUploadPath
-} from '../public/ui-utils.js';
+} from '../src/shared/ui-utils.js';
 
 test('resolveUploadPath uses session upload path for root page', () => {
   assert.equal(resolveUploadPath('/'), '/upload');

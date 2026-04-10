@@ -6,7 +6,7 @@ import {
   parseStoredShareTokens,
   reconcileStoredShareTokens,
   upsertStoredShareToken
-} from '../public/admin-token-utils.js';
+} from '../src/shared/admin-token-utils.js';
 
 test('createLocalShareUrl builds a share link for the current origin', () => {
   assert.equal(
