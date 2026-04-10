@@ -1,3 +1,12 @@
+FROM node:22-alpine AS web-build
+
+WORKDIR /build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY web/package.json web/
+RUN corepack enable && pnpm install --frozen-lockfile
+COPY web/ web/
+RUN pnpm build:web
+
 FROM node:22-alpine
 
 ENV NODE_ENV=production
@@ -12,7 +21,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile --prod
 
 COPY --chown=app:app src ./src
-COPY --chown=app:app public ./public
+COPY --from=web-build --chown=app:app /build/web/dist ./web/dist
 
 RUN mkdir -p /uploads /data/meta /data/auth /home/app/.cache && chown -R app:app /uploads /data /app /home/app
 
