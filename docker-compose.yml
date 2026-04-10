@@ -17,6 +17,9 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    depends_on:
+      clamav:
+        condition: service_healthy
     networks:
       - dropnet
 
@@ -24,7 +27,6 @@ services:
     image: clamav/clamav:1.4
     container_name: fuekw-dropzone-clamav
     restart: unless-stopped
-    profiles: ["av"]
     networks:
       - dropnet
     healthcheck:

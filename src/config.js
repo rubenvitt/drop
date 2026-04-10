@@ -45,7 +45,7 @@ export function loadConfig(env = process.env) {
     pocketIdClientId: env.POCKET_ID_CLIENT_ID ?? '',
     pocketIdClientSecret: env.POCKET_ID_CLIENT_SECRET ?? '',
     av: {
-      enabled: (env.AV_ENABLED ?? 'false').toLowerCase() === 'true',
+      enabled: (env.AV_ENABLED ?? 'true').toLowerCase() === 'true',
       host: env.AV_HOST ?? 'clamav',
       port: toInt(env.AV_PORT, 3310),
       timeoutMs: toInt(env.AV_TIMEOUT_MS, 30_000),
