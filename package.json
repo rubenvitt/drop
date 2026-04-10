@@ -6,6 +6,8 @@
   "description": "Minimal robust dropzone upload service",
   "scripts": {
     "start": "node --import ./instrument.mjs src/start.js",
+    "build:web": "pnpm --filter fuekw-dropzone-web build",
+    "dev:web": "pnpm --filter fuekw-dropzone-web dev",
     "test": "node --test",
     "qr": "node scripts/generate-qr.js"
   },
