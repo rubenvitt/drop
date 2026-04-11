@@ -30,7 +30,7 @@ services:
     networks:
       - dropnet
     healthcheck:
-      test: ["CMD", "clamdcheck"]
+      test: ["CMD", "clamdcheck.sh"]
       interval: 60s
       timeout: 10s
       retries: 3

@@ -6,7 +6,7 @@ const INSTREAM_OPEN = Buffer.from('zINSTREAM\0');
 const INSTREAM_END = Buffer.alloc(4, 0);
 
 function parseResponse(data) {
-  const text = data.toString('utf8').trim();
+  const text = data.toString('utf8').replace(/\0/g, '').trim();
 
   if (text.endsWith('OK')) {
     return { clean: true };
