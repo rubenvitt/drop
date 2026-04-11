@@ -17,8 +17,24 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    depends_on:
+      clamav:
+        condition: service_healthy
     networks:
       - dropnet
+
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: fuekw-dropzone-clamav
+    restart: unless-stopped
+    networks:
+      - dropnet
+    healthcheck:
+      test: ["CMD", "clamdcheck"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
   caddy:
     image: caddy:2.10-alpine
