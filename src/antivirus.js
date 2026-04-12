@@ -6,18 +6,23 @@ const INSTREAM_OPEN = Buffer.from('zINSTREAM\0');
 const INSTREAM_END = Buffer.alloc(4, 0);
 
 function parseResponse(data) {
-  const text = data.toString('utf8').trim();
+  const text = data.toString('utf8').replace(/\0/g, '').trim();
 
-  if (text.endsWith('OK')) {
+  if (/^stream:\s*OK$/i.test(text)) {
     return { clean: true };
   }
 
-  const match = text.match(/^stream:\s*(.+)\s+FOUND$/i);
-  if (match) {
-    return { clean: false, virus: match[1] };
+  const found = text.match(/^stream:\s*(.+)\s+FOUND$/i);
+  if (found) {
+    return { clean: false, virus: found[1] };
   }
 
-  return { clean: false, virus: text || 'unknown' };
+  const error = text.match(/^stream:\s*(.+)\s+ERROR$/i);
+  if (error) {
+    throw new Error(`ClamAV error: ${error[1]}`);
+  }
+
+  throw new Error(`Unexpected ClamAV response: ${text || '<empty>'}`);
 }
 
 function scanStream(filePath, { host, port, timeoutMs }) {
