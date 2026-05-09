@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.3",
   "description": "Minimal robust dropzone upload service",
   "scripts": {
     "start": "node --import ./instrument.mjs src/start.js",
