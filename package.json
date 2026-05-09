@@ -20,7 +20,7 @@
   "dependencies": {
     "@better-auth/api-key": "^1.5.5",
     "@better-auth/cli": "^1.4.21",
-    "@fastify/multipart": "^9.4.0",
+    "@fastify/multipart": "^10.0.0",
     "@fastify/static": "^9.0.0",
     "@sentry/browser": "^10.43.0",
     "@sentry/node": "^10.43.0",
